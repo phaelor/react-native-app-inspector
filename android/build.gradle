@@ -1,0 +1,32 @@
+apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
+
+// AGP, the kotlin gradle plugin and the SDK versions are provided by the host
+// app's root project (RN's pluginManagement) and inherited here.
+def getExtOrIntegerDefault = { name ->
+  rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties["AppInspector_" + name]).toInteger()
+}
+
+android {
+  namespace "com.appinspector"
+
+  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
+
+  defaultConfig {
+    minSdkVersion getExtOrIntegerDefault("minSdkVersion")
+    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
+  }
+
+  buildFeatures {
+    buildConfig true
+  }
+}
+
+repositories {
+  mavenCentral()
+  google()
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+}
