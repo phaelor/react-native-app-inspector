@@ -148,6 +148,35 @@ describe('ScreenMonitor — threshold boundaries', () => {
     expect(pg.memory.increaseMb).toBe(101);
   });
 
+  it('interaction: <100ms is fine, 100–300ms warns (-5), ≥300ms errors (-15)', () => {
+    const ok = makeMonitor().monitor;
+    ok.enter('Ok');
+    ok.recordInteraction('Tap', 99);
+    expect(profileOf(ok, 'Ok')!.score).toBe(100);
+
+    const slow = makeMonitor().monitor;
+    slow.enter('Slow');
+    slow.recordInteraction('Tap', 150);
+    const ps = profileOf(slow, 'Slow')!;
+    expect(ps.score).toBe(95);
+    expect(ps.problems[0]).toMatchObject({
+      kind: 'interaction',
+      severity: 'warn',
+    });
+
+    const bad = makeMonitor().monitor;
+    bad.enter('Bad');
+    bad.recordInteraction('Checkout', 620);
+    const pb = profileOf(bad, 'Bad')!;
+    expect(pb.score).toBe(85);
+    expect(pb.problems[0]).toMatchObject({
+      kind: 'interaction',
+      severity: 'error',
+    });
+    expect(pb.interactions.worstLabel).toBe('Checkout');
+    expect(pb.interactions.worstMs).toBe(620);
+  });
+
   it('network: 999ms is fine, 1000ms is slow', () => {
     const ok = makeMonitor().monitor;
     ok.enter('Ok');
