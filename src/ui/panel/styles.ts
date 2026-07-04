@@ -133,12 +133,29 @@ export const panelStyles = StyleSheet.create({
 
   // Correlation banner
   cause: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: 'rgba(248, 113, 113, 0.12)',
     borderRadius: 10,
     padding: 9,
     marginBottom: 8,
   },
+  causeIcon: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.bad,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  causeIconText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
   causeText: {
+    flex: 1,
     color: '#fca5a5',
     fontSize: 12,
     lineHeight: 16,
