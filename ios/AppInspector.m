@@ -11,6 +11,8 @@
   CFTimeInterval _windowStart;
   double _uiFps;
   BOOL _hasListeners;
+  CADisplayLink *_frameWatchLink;
+  NSMutableArray *_frameWatchResolvers;
 }
 
 RCT_EXPORT_MODULE(AppInspector)
@@ -118,6 +120,36 @@ RCT_EXPORT_METHOD(stopMonitoring) {
   }
   double mb = (double)info.phys_footprint / (1024.0 * 1024.0);
   return round(mb * 10.0) / 10.0;
+}
+
+// Presentation time (ms, CACurrentMediaTime clock — same clock as RN touch
+// timestamps) of the next frame.
+RCT_EXPORT_METHOD(watchNextFrame : (RCTPromiseResolveBlock)resolve
+                  rejecter : (RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (!self->_frameWatchResolvers) {
+      self->_frameWatchResolvers = [NSMutableArray new];
+    }
+    [self->_frameWatchResolvers addObject:resolve];
+    if (!self->_frameWatchLink) {
+      self->_frameWatchLink =
+          [CADisplayLink displayLinkWithTarget:self
+                                      selector:@selector(onWatchedFrame:)];
+      [self->_frameWatchLink addToRunLoop:[NSRunLoop mainRunLoop]
+                                  forMode:NSRunLoopCommonModes];
+    }
+  });
+}
+
+- (void)onWatchedFrame:(CADisplayLink *)link {
+  double presentedMs = link.targetTimestamp * 1000.0;
+  NSArray *pending = [_frameWatchResolvers copy];
+  [_frameWatchResolvers removeAllObjects];
+  [_frameWatchLink invalidate];
+  _frameWatchLink = nil;
+  for (RCTPromiseResolveBlock resolve in pending) {
+    resolve(@(presentedMs));
+  }
 }
 
 RCT_EXPORT_METHOD(getProcessStartTime : (RCTPromiseResolveBlock)resolve

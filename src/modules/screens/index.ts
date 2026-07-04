@@ -1,4 +1,5 @@
 import type { ScreenProblem, ScreenProfile } from '../../core/types';
+import { INTERACTION_ERROR_MS, INTERACTION_WARN_MS } from '../interactions';
 
 export interface ScreenMonitorOptions {
   /** Called whenever the per-screen profiles change. */
@@ -42,6 +43,10 @@ interface Accum {
   netSlow: number;
   worstNetMs: number;
   worstNetUrl?: string;
+  interactions: number;
+  slowInteractions: number;
+  worstInteractionMs: number;
+  worstInteractionLabel?: string;
 }
 
 /** One performance sample's screen-relevant fields. */
@@ -160,6 +165,23 @@ export class ScreenMonitor {
     this.emit();
   }
 
+  /** Record a measured tap-to-response interaction on the active screen. */
+  recordInteraction(label: string, latencyMs: number): void {
+    const a = this.activeAccum();
+    if (!a) {
+      return;
+    }
+    a.interactions += 1;
+    if (latencyMs >= INTERACTION_WARN_MS) {
+      a.slowInteractions += 1;
+    }
+    if (latencyMs > a.worstInteractionMs) {
+      a.worstInteractionMs = Math.round(latencyMs);
+      a.worstInteractionLabel = label;
+    }
+    this.emit();
+  }
+
   /** Mark the active screen interactive (completes its load timing). */
   markInteractive(): void {
     const a = this.activeAccum();
@@ -247,6 +269,21 @@ export class ScreenMonitor {
         label: `${a.netSlow} slow request(s)${a.worstNetUrl ? ` — ${a.worstNetUrl} ${a.worstNetMs}ms` : ''}`,
       });
     }
+    if (a.worstInteractionMs >= INTERACTION_ERROR_MS) {
+      score -= 15;
+      problems.push({
+        kind: 'interaction',
+        severity: 'error',
+        label: `Slow to respond — ${a.worstInteractionLabel ?? '?'} ${a.worstInteractionMs}ms`,
+      });
+    } else if (a.slowInteractions > 0) {
+      score -= 5;
+      problems.push({
+        kind: 'interaction',
+        severity: 'warn',
+        label: `${a.slowInteractions} slow interaction(s)`,
+      });
+    }
 
     return {
       screen: a.screen,
@@ -268,6 +305,12 @@ export class ScreenMonitor {
         slowRequests: a.netSlow,
         worstMs: a.worstNetMs,
         worstUrl: a.worstNetUrl,
+      },
+      interactions: {
+        count: a.interactions,
+        slowCount: a.slowInteractions,
+        worstMs: a.worstInteractionMs,
+        worstLabel: a.worstInteractionLabel,
       },
       problems,
     };
@@ -297,6 +340,9 @@ export class ScreenMonitor {
         netRequests: 0,
         netSlow: 0,
         worstNetMs: 0,
+        interactions: 0,
+        slowInteractions: 0,
+        worstInteractionMs: 0,
       };
       this.screens.set(screen, a);
     }

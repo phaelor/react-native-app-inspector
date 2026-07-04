@@ -6,6 +6,7 @@ interface AppInspectorNativeModule {
   startMonitoring(intervalMs: number): void;
   stopMonitoring(): void;
   getProcessStartTime(): Promise<number>;
+  watchNextFrame(): Promise<number>;
 }
 
 const EVENT_NAME = 'AppInspectorMetrics';
@@ -70,6 +71,18 @@ class NativeMetricsBridge implements NativeMetricsProvider {
       return await nativeModule.getProcessStartTime();
     } catch {
       return undefined;
+    }
+  }
+
+  async watchNextFrame(): Promise<number | null> {
+    if (!nativeModule?.watchNextFrame) {
+      return null;
+    }
+    try {
+      const presentedAtMs = await nativeModule.watchNextFrame();
+      return presentedAtMs > 0 ? presentedAtMs : null;
+    } catch {
+      return null;
     }
   }
 

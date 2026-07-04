@@ -155,7 +155,7 @@ export interface StartupTimings {
 
 /** One detected performance problem on a screen. */
 export interface ScreenProblem {
-  kind: 'load' | 'fps' | 'render' | 'memory' | 'network';
+  kind: 'load' | 'fps' | 'render' | 'memory' | 'network' | 'interaction';
   severity: 'warn' | 'error';
   /** Human-readable description, e.g. "Slow render — CheckoutList 620ms". */
   label: string;
@@ -198,6 +198,13 @@ export interface ScreenProfile {
     worstMs: number;
     worstUrl?: string;
   };
+  interactions: {
+    count: number;
+    /** Interactions above the noticeable threshold (100ms, RAIL). */
+    slowCount: number;
+    worstMs: number;
+    worstLabel?: string;
+  };
   /** Concrete issues, worst first. */
   problems: ScreenProblem[];
 }
@@ -211,7 +218,8 @@ export type TimelineEventType =
   | 'network'
   | 'fps'
   | 'memory'
-  | 'error';
+  | 'error'
+  | 'interaction';
 
 /** Visual severity used to colour timeline events. */
 export type TimelineSeverity = 'info' | 'warn' | 'error';

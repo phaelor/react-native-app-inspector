@@ -4,6 +4,7 @@ import type {
   TimelineEventType,
   TimelineSeverity,
 } from '../../core/types';
+import { INTERACTION_ERROR_MS, INTERACTION_WARN_MS } from '../interactions';
 
 /** Tuning + hooks for {@link Timeline}. */
 export interface TimelineOptions {
@@ -157,6 +158,22 @@ export class Timeline {
       durationMs: Math.round(durationMs),
       severity: durationMs >= this.options.slowRenderMs * 4 ? 'error' : 'warn',
       data: { phase },
+    });
+  }
+
+  /** Record a measured tap-to-response interaction. */
+  trackInteraction(label: string, latencyMs: number): TimelineEvent {
+    const rounded = Math.round(latencyMs);
+    return this.add({
+      type: 'interaction',
+      label,
+      durationMs: rounded,
+      severity:
+        rounded >= INTERACTION_ERROR_MS
+          ? 'error'
+          : rounded >= INTERACTION_WARN_MS
+            ? 'warn'
+            : 'info',
     });
   }
 

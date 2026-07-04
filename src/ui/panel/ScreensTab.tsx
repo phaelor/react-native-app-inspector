@@ -109,6 +109,14 @@ function ScreenDetail({
         label="network"
         value={`${profile.network.requests} req · ${profile.network.slowRequests} slow`}
       />
+      <Row
+        label="taps"
+        value={
+          profile.interactions.count > 0
+            ? `${profile.interactions.count}× · ${profile.interactions.worstMs}ms worst`
+            : 'n/a'
+        }
+      />
 
       <Text style={styles.sectionTitle}>Why slow?</Text>
       {profile.problems.length > 0 ? (
