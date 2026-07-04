@@ -115,10 +115,13 @@ class AppInspectorController {
   private readonly interactionTracker = new InteractionTracker({
     watchFramePresentation: () =>
       this.nativeMetrics?.watchNextFrame() ?? Promise.resolve(null),
-    onComplete: ({ label, latencyMs }) => {
-      this.timeline.trackInteraction(label, latencyMs);
+    captureContext: () => this.timeline.getCurrentScreen(),
+    onComplete: ({ label, latencyMs, context }) => {
+      // Attribute to the screen that was active at begin, not at completion.
+      const screen = typeof context === 'string' ? context : undefined;
+      this.timeline.trackInteraction(label, latencyMs, screen);
       if (this.config.modules.slowScreens) {
-        this.screenMonitor.recordInteraction(label, latencyMs);
+        this.screenMonitor.recordInteraction(label, latencyMs, screen);
       }
     },
   });

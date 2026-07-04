@@ -3,6 +3,7 @@ package com.appinspector
 import android.os.Build
 import android.os.Debug
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
@@ -37,6 +38,14 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
   private var emitRunnable: Runnable? = null
   private var lastCpuTicks = -1L
   private var lastCpuAt = 0L
+
+  // FrameMetrics callbacks run off the UI thread so the watch does not perturb
+  // the frame timing it measures.
+  private val frameMetricsHandler: Handler by lazy {
+    val thread = HandlerThread("AppInspectorFrameMetrics")
+    thread.start()
+    Handler(thread.looper)
+  }
 
   private companion object {
     const val WATCH_FRAME_TIMEOUT_MS = 3000L
@@ -175,7 +184,7 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
       }
     }
     try {
-      window.addOnFrameMetricsAvailableListener(listener, handler)
+      window.addOnFrameMetricsAvailableListener(listener, frameMetricsHandler)
     } catch (e: Exception) {
       Choreographer.getInstance().postFrameCallback { frameTimeNanos ->
         promise.resolve(frameTimeNanos / 1_000_000.0)

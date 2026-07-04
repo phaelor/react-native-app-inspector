@@ -165,9 +165,9 @@ export class ScreenMonitor {
     this.emit();
   }
 
-  /** Record a measured tap-to-response interaction on the active screen. */
-  recordInteraction(label: string, latencyMs: number): void {
-    const a = this.activeAccum();
+  /** Record a tap-to-response interaction (on `screen`, or the active one). */
+  recordInteraction(label: string, latencyMs: number, screen?: string): void {
+    const a = screen !== undefined ? this.accum(screen) : this.activeAccum();
     if (!a) {
       return;
     }

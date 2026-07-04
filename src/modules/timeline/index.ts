@@ -162,7 +162,11 @@ export class Timeline {
   }
 
   /** Record a measured tap-to-response interaction. */
-  trackInteraction(label: string, latencyMs: number): TimelineEvent {
+  trackInteraction(
+    label: string,
+    latencyMs: number,
+    screen?: string,
+  ): TimelineEvent {
     const rounded = Math.round(latencyMs);
     return this.add({
       type: 'interaction',
@@ -174,6 +178,7 @@ export class Timeline {
           : rounded >= INTERACTION_WARN_MS
             ? 'warn'
             : 'info',
+      screen,
     });
   }
 

@@ -25,7 +25,7 @@ function TodoRow({
     <View style={styles.row}>
       <InspectorPressable
         label="Toggle todo"
-        style={styles.rowMain}
+        style={({pressed}) => [styles.rowMain, pressed && styles.pressed]}
         onPress={onToggle}>
         <View style={[styles.checkbox, todo.done && styles.checkboxDone]}>
           {todo.done ? <Text style={styles.check}>✓</Text> : null}
@@ -74,7 +74,11 @@ export function TodoListScreen({
         />
         <InspectorPressable
           label="Add todo"
-          style={[styles.addButton, saving && styles.addButtonBusy]}
+          style={({pressed}) => [
+            styles.addButton,
+            saving && styles.addButtonBusy,
+            pressed && styles.pressed,
+          ]}
           onPress={onAdd}
           disabled={saving}>
           <Text style={styles.addButtonText}>{saving ? '…' : 'Add'}</Text>
@@ -122,6 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButtonBusy: {opacity: 0.6},
+  pressed: {opacity: 0.55},
   addButtonText: {color: '#ffffff', fontWeight: '700', fontSize: 15},
   loader: {marginTop: 32},
   row: {

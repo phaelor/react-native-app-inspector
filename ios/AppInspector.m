@@ -122,15 +122,19 @@ RCT_EXPORT_METHOD(stopMonitoring) {
   return round(mb * 10.0) / 10.0;
 }
 
+static const NSTimeInterval kWatchFrameTimeoutSec = 3.0;
+
 // Presentation time (ms, CACurrentMediaTime clock — same clock as RN touch
-// timestamps) of the next frame.
+// timestamps) of the next frame; -1 when none is presented in time (e.g. the
+// app got backgrounded and the display link paused).
 RCT_EXPORT_METHOD(watchNextFrame : (RCTPromiseResolveBlock)resolve
                   rejecter : (RCTPromiseRejectBlock)reject) {
+  RCTPromiseResolveBlock resolver = [resolve copy];
   dispatch_async(dispatch_get_main_queue(), ^{
     if (!self->_frameWatchResolvers) {
       self->_frameWatchResolvers = [NSMutableArray new];
     }
-    [self->_frameWatchResolvers addObject:resolve];
+    [self->_frameWatchResolvers addObject:resolver];
     if (!self->_frameWatchLink) {
       self->_frameWatchLink =
           [CADisplayLink displayLinkWithTarget:self
@@ -138,6 +142,20 @@ RCT_EXPORT_METHOD(watchNextFrame : (RCTPromiseResolveBlock)resolve
       [self->_frameWatchLink addToRunLoop:[NSRunLoop mainRunLoop]
                                   forMode:NSRunLoopCommonModes];
     }
+    dispatch_after(
+        dispatch_time(DISPATCH_TIME_NOW,
+                      (int64_t)(kWatchFrameTimeoutSec * NSEC_PER_SEC)),
+        dispatch_get_main_queue(), ^{
+          if (![self->_frameWatchResolvers containsObject:resolver]) {
+            return;
+          }
+          [self->_frameWatchResolvers removeObject:resolver];
+          if (self->_frameWatchResolvers.count == 0) {
+            [self->_frameWatchLink invalidate];
+            self->_frameWatchLink = nil;
+          }
+          resolver(@(-1.0));
+        });
   });
 }
 

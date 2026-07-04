@@ -7,6 +7,8 @@ export interface CompletedInteraction {
   latencyMs: number;
   endedBy: 'commit' | 'manual';
   clock: 'native' | 'js';
+  /** Value returned by `captureContext` when the interaction began. */
+  context?: unknown;
 }
 
 export interface InteractionTrackerOptions {
@@ -16,6 +18,8 @@ export interface InteractionTrackerOptions {
    * clock touch-event timestamps use. `null` when native timing is unavailable.
    */
   watchFramePresentation?: () => Promise<number | null>;
+  /** Captured at begin and echoed on completion (e.g. the active screen). */
+  captureContext?: () => unknown;
   now?: () => number;
   requestFrame?: (callback: () => void) => void;
   timeoutMs?: number;
@@ -32,6 +36,7 @@ interface PendingInteraction {
   jsStartMs: number;
   nativeStartMs?: number;
   completeOnCommit: boolean;
+  context?: unknown;
   timeout: ReturnType<typeof setTimeout>;
 }
 
@@ -52,14 +57,17 @@ const defaultRequestFrame = (callback: () => void): void => {
 export class InteractionTracker {
   private readonly onComplete: (interaction: CompletedInteraction) => void;
   private readonly watchFramePresentation?: () => Promise<number | null>;
+  private readonly captureContext?: () => unknown;
   private readonly now: () => number;
   private readonly requestFrame: (callback: () => void) => void;
   private readonly timeoutMs: number;
   private pending: PendingInteraction[] = [];
+  private epoch = 0;
 
   constructor(options: InteractionTrackerOptions) {
     this.onComplete = options.onComplete;
     this.watchFramePresentation = options.watchFramePresentation;
+    this.captureContext = options.captureContext;
     this.now = options.now ?? Date.now;
     this.requestFrame = options.requestFrame ?? defaultRequestFrame;
     this.timeoutMs = options.timeoutMs ?? 5000;
@@ -71,6 +79,7 @@ export class InteractionTracker {
       jsStartMs: this.now(),
       nativeStartMs: options.nativeTimestampMs,
       completeOnCommit: options.completeOnCommit ?? false,
+      context: this.captureContext?.(),
       timeout: setTimeout(() => this.take(entry), this.timeoutMs),
     };
     this.pending.push(entry);
@@ -82,6 +91,9 @@ export class InteractionTracker {
   }
 
   notifyCommit(): void {
+    if (this.pending.length === 0) {
+      return;
+    }
     const ready = this.pending.filter((entry) => entry.completeOnCommit);
     for (const entry of ready) {
       if (this.take(entry)) {
@@ -90,11 +102,13 @@ export class InteractionTracker {
     }
   }
 
+  /** Drops in-flight measurements and invalidates completions already racing. */
   clear(): void {
     for (const entry of this.pending) {
       clearTimeout(entry.timeout);
     }
     this.pending = [];
+    this.epoch += 1;
   }
 
   private take(entry: PendingInteraction): boolean {
@@ -111,10 +125,17 @@ export class InteractionTracker {
     entry: PendingInteraction,
     endedBy: CompletedInteraction['endedBy'],
   ): void {
+    const epoch = this.epoch;
     const jsLatencyMs = this.now() - entry.jsStartMs;
 
     if (this.watchFramePresentation && entry.nativeStartMs !== undefined) {
       const nativeStartMs = entry.nativeStartMs;
+      // Measured in parallel so the fallback is frame-timed too, matching the
+      // pure-JS path below.
+      let jsFrameLatencyMs: number | null = null;
+      this.requestFrame(() => {
+        jsFrameLatencyMs = this.now() - entry.jsStartMs;
+      });
       this.watchFramePresentation()
         .then((presentedAtMs) => {
           const latencyMs =
@@ -126,33 +147,50 @@ export class InteractionTracker {
             latencyMs >= 0 &&
             latencyMs <= this.timeoutMs
           ) {
-            this.emit(entry.label, latencyMs, endedBy, 'native');
+            this.emit(entry, latencyMs, endedBy, 'native', epoch);
           } else {
-            this.emit(entry.label, jsLatencyMs, endedBy, 'js');
+            this.emit(
+              entry,
+              jsFrameLatencyMs ?? jsLatencyMs,
+              endedBy,
+              'js',
+              epoch,
+            );
           }
         })
         .catch(() => {
-          this.emit(entry.label, jsLatencyMs, endedBy, 'js');
+          this.emit(
+            entry,
+            jsFrameLatencyMs ?? jsLatencyMs,
+            endedBy,
+            'js',
+            epoch,
+          );
         });
       return;
     }
 
     this.requestFrame(() => {
-      this.emit(entry.label, this.now() - entry.jsStartMs, endedBy, 'js');
+      this.emit(entry, this.now() - entry.jsStartMs, endedBy, 'js', epoch);
     });
   }
 
   private emit(
-    label: string,
+    entry: PendingInteraction,
     latencyMs: number,
     endedBy: CompletedInteraction['endedBy'],
     clock: CompletedInteraction['clock'],
+    epoch: number,
   ): void {
+    if (epoch !== this.epoch) {
+      return;
+    }
     this.onComplete({
-      label,
+      label: entry.label,
       latencyMs: Math.max(0, Math.round(latencyMs)),
       endedBy,
       clock,
+      context: entry.context,
     });
   }
 }

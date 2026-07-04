@@ -69,6 +69,23 @@ describe('InteractionTracker — native path', () => {
     ]);
   });
 
+  it('prefers the frame-timed JS fallback when a frame fired first', async () => {
+    const { tracker, completed, set, flushFrames } = makeTracker({
+      watchFramePresentation: () => Promise.resolve(null),
+    });
+    set(1000);
+    tracker.begin('Tap', { nativeTimestampMs: 500, completeOnCommit: true });
+    set(1120);
+    tracker.notifyCommit();
+    set(1136);
+    flushFrames();
+    await flushMicrotasks();
+
+    expect(completed).toEqual([
+      { label: 'Tap', latencyMs: 136, endedBy: 'commit', clock: 'js' },
+    ]);
+  });
+
   it('rejects clock-domain garbage (negative / absurd latency)', async () => {
     const { tracker, completed, set } = makeTracker({
       watchFramePresentation: () => Promise.resolve(100),
@@ -194,6 +211,33 @@ describe('InteractionTracker — timeout & clear', () => {
     tracker.notifyCommit();
     flushFrames();
     expect(completed).toEqual([]);
+  });
+
+  it('clear() between commit and frame suppresses the late emit', () => {
+    const { tracker, completed, flushFrames } = makeTracker({});
+    tracker.begin('Tap', { completeOnCommit: true });
+    tracker.notifyCommit();
+    tracker.clear();
+    flushFrames();
+    expect(completed).toEqual([]);
+  });
+
+  it('echoes the context captured at begin, not at completion', () => {
+    let screen = 'Checkout';
+    const completed: CompletedInteraction[] = [];
+    const frames: Array<() => void> = [];
+    const tracker = new InteractionTracker({
+      onComplete: (interaction) => completed.push(interaction),
+      now: () => 0,
+      requestFrame: (cb) => frames.push(cb),
+      captureContext: () => screen,
+    });
+    tracker.begin('Tap', { completeOnCommit: true });
+    screen = 'Home';
+    tracker.notifyCommit();
+    frames.splice(0).forEach((cb) => cb());
+
+    expect(completed[0]?.context).toBe('Checkout');
   });
 });
 

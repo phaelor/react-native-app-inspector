@@ -9,21 +9,22 @@ export interface InspectorPressableProps extends PressableProps {
 }
 
 /**
- * A drop-in `Pressable` that measures tap-to-response latency, from the native
- * touch timestamp to the first frame presented after the next React commit.
+ * A drop-in `Pressable` that measures tap-to-response latency, from the
+ * press's native release timestamp to the first frame presented after the
+ * next React commit. Cancelled presses (drag off) record nothing.
  */
 export function InspectorPressable({
   label,
-  onPressIn,
+  onPress,
   ...rest
 }: InspectorPressableProps): ReactElement {
-  const handlePressIn = (event: GestureResponderEvent): void => {
+  const handlePress = (event: GestureResponderEvent): void => {
     AppInspector.getInteractionTracker().begin(label, {
       nativeTimestampMs: event.nativeEvent.timestamp,
       completeOnCommit: true,
     });
-    onPressIn?.(event);
+    onPress?.(event);
   };
 
-  return <Pressable {...rest} onPressIn={handlePressIn} />;
+  return <Pressable {...rest} onPress={handlePress} />;
 }
