@@ -4,17 +4,8 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import type { InspectorState } from '../../core';
 import type { ScreenProblem, ScreenProfile } from '../../core/types';
 import { Row } from './Row';
-import { panelStyles as styles, colors } from './styles';
-
-function scoreColor(score: number): string {
-  if (score >= 80) {
-    return colors.good;
-  }
-  if (score >= 50) {
-    return colors.warn;
-  }
-  return colors.bad;
-}
+import { usePanelStyles } from './styles';
+import { scoreColor } from '../theme';
 
 function ScreenListRow({
   profile,
@@ -23,7 +14,8 @@ function ScreenListRow({
   profile: ScreenProfile;
   onPress: () => void;
 }): ReactElement {
-  const color = scoreColor(profile.score);
+  const { styles, theme } = usePanelStyles();
+  const color = scoreColor(theme, profile.score);
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -43,7 +35,8 @@ function ScreenListRow({
 }
 
 function ProblemRow({ problem }: { problem: ScreenProblem }): ReactElement {
-  const color = problem.severity === 'error' ? colors.bad : colors.warn;
+  const { styles, theme } = usePanelStyles();
+  const color = problem.severity === 'error' ? theme.bad : theme.warn;
   return (
     <View style={styles.problemRow}>
       <View style={[styles.dot, { backgroundColor: color }]} />
@@ -63,7 +56,8 @@ function ScreenDetail({
   profile: ScreenProfile;
   onBack: () => void;
 }): ReactElement {
-  const color = scoreColor(profile.score);
+  const { styles, theme } = usePanelStyles();
+  const color = scoreColor(theme, profile.score);
   return (
     <View>
       <TouchableOpacity
@@ -137,6 +131,7 @@ function ScreenDetail({
  * problems. Tap a screen to see why it's slow.
  */
 export function ScreensTab({ state }: { state: InspectorState }): ReactElement {
+  const { styles } = usePanelStyles();
   const [selected, setSelected] = useState<string | null>(null);
   const { screens } = state;
 

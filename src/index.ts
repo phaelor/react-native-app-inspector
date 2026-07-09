@@ -19,12 +19,14 @@ export {
   InspectorProfiler,
   InspectorScreen,
   useInspectorState,
+  ThemeProvider,
 } from './ui';
 export type {
   InspectorPanelProps,
   InspectorPressableProps,
   InspectorProfilerProps,
   InspectorScreenProps,
+  Theme,
 } from './ui';
 
 // React Navigation integration

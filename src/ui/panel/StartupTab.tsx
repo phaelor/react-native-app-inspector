@@ -2,10 +2,11 @@ import type { ReactElement } from 'react';
 import { Text, View } from 'react-native';
 import type { InspectorState } from '../../core';
 import { Row } from './Row';
-import { panelStyles as styles } from './styles';
+import { usePanelStyles } from './styles';
 
 /** Time-to-interactive and ordered startup / navigation marks. */
 export function StartupTab({ state }: { state: InspectorState }): ReactElement {
+  const { styles } = usePanelStyles();
   const { startup } = state;
   return (
     <View>

@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import type { InspectorState } from '../../core';
 import type { PerformanceSample } from '../../core/types';
 import { Row } from './Row';
-import { panelStyles as styles } from './styles';
+import { usePanelStyles } from './styles';
 
 function mb(value: number | undefined): string {
   return value !== undefined ? `${value} MB` : 'n/a';
@@ -15,6 +15,7 @@ export function PerformanceTab({
 }: {
   state: InspectorState;
 }): ReactElement {
+  const { styles } = usePanelStyles();
   const samples = state.performance;
   const latest: PerformanceSample | undefined = samples[samples.length - 1];
   const fpsValues = samples.map((s) => s.jsFps).filter((f) => f > 0);
