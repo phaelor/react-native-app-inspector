@@ -48,6 +48,21 @@ function formatValue(value: unknown): string {
 
 const seconds = (ms: number): string => `${(ms / 1000).toFixed(2)}s`;
 
+/**
+ * Correlation banner. The leading badge is a styled view, not an emoji —
+ * emoji glyphs are missing on some devices and render as "?".
+ */
+function CauseBanner({ summary }: { summary: string }): ReactElement {
+  return (
+    <View style={styles.cause}>
+      <View style={styles.causeIcon}>
+        <Text style={styles.causeIconText}>!</Text>
+      </View>
+      <Text style={styles.causeText}>{summary}</Text>
+    </View>
+  );
+}
+
 function TimelineDetail({
   event,
   onBack,
@@ -79,9 +94,7 @@ function TimelineDetail({
         <Row key={key} label={key} value={formatValue(value)} />
       ))}
       {correlation?.summary ? (
-        <View style={styles.cause}>
-          <Text style={styles.causeText}>🔎 {correlation.summary}</Text>
-        </View>
+        <CauseBanner summary={correlation.summary} />
       ) : (
         <Text style={styles.empty}>No correlated causes for this event.</Text>
       )}
@@ -152,9 +165,7 @@ export function TimelineTab({
   return (
     <View>
       {correlation?.summary ? (
-        <View style={styles.cause}>
-          <Text style={styles.causeText}>🔎 {correlation.summary}</Text>
-        </View>
+        <CauseBanner summary={correlation.summary} />
       ) : null}
       <View style={styles.filterRow}>
         {SEVERITY_FILTERS.map((option) => (
