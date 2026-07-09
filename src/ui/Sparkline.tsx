@@ -7,6 +7,8 @@ export interface SparklineProps {
   color: string;
   /** Bar area height in px. */
   height?: number;
+  /** Fixed bar area width in px. Omit to fill the parent. */
+  width?: number;
   /** Fixed full-height ceiling; values above it clamp. Defaults to the peak. */
   max?: number;
 }
@@ -16,11 +18,12 @@ export function Sparkline({
   values,
   color,
   height = 24,
+  width,
   max,
 }: SparklineProps): ReactElement {
   const peak = Math.max(max ?? Math.max(...values), 1);
   return (
-    <View style={[styles.row, { height }]}>
+    <View style={[styles.row, { height, width }]}>
       {values.map((value, i) => {
         const ratio = Math.min(1, Math.max(0, value) / peak);
         return (

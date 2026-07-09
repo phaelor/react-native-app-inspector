@@ -34,6 +34,30 @@ describe('<InspectorPanel />', () => {
     expect(getByText('40 ms')).toBeTruthy(); // longest frame
   });
 
+  it('toggles the floating badge from the panel', () => {
+    const onToggleBadge = jest.fn();
+    const { getByText, rerender } = render(
+      <InspectorPanel visible badgeVisible onToggleBadge={onToggleBadge} />,
+    );
+    fireEvent.press(getByText('Hide badge'));
+    expect(onToggleBadge).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <InspectorPanel
+        visible
+        badgeVisible={false}
+        onToggleBadge={onToggleBadge}
+      />,
+    );
+    expect(getByText('Show badge')).toBeTruthy();
+  });
+
+  it('omits the badge toggle when no handler is given', () => {
+    const { queryByText } = render(<InspectorPanel visible />);
+    expect(queryByText('Hide badge')).toBeNull();
+    expect(queryByText('Show badge')).toBeNull();
+  });
+
   it('switches to the startup tab on press', () => {
     const { getByText } = render(<InspectorPanel visible />);
     fireEvent.press(getByText('Startup'));

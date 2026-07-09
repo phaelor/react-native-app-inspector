@@ -1,5 +1,7 @@
 export { InspectorPanel } from './InspectorPanel';
 export type { InspectorPanelProps } from './InspectorPanel';
+export { InspectorFpsBadge } from './InspectorFpsBadge';
+export type { InspectorFpsBadgeProps, BadgeCorner } from './InspectorFpsBadge';
 export { InspectorPressable } from './InspectorPressable';
 export type { InspectorPressableProps } from './InspectorPressable';
 export { InspectorProfiler } from './InspectorProfiler';

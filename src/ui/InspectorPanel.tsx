@@ -27,6 +27,10 @@ export interface InspectorPanelProps {
   visible?: boolean;
   /** Tab to show first. Defaults to `timeline`. */
   initialTab?: Tab;
+  /** Current visibility of the floating badge, for the toggle's label. */
+  badgeVisible?: boolean;
+  /** When set, shows a control that toggles the floating badge. */
+  onToggleBadge?: () => void;
 }
 
 /** Compact, always-visible live summary: FPS · CPU · MEM. */
@@ -76,6 +80,8 @@ function StatusStrip({
 export function InspectorPanel({
   visible = false,
   initialTab = 'timeline',
+  badgeVisible = true,
+  onToggleBadge,
 }: InspectorPanelProps): ReactElement | null {
   const [tab, setTab] = useState<Tab>(initialTab);
   const state = useInspectorState();
@@ -108,6 +114,17 @@ export function InspectorPanel({
             </TouchableOpacity>
           ))}
           <View style={styles.tabsSpacer} />
+          {onToggleBadge ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={onToggleBadge}
+              style={styles.tab}
+            >
+              <Text style={styles.tabText}>
+                {badgeVisible ? 'Hide badge' : 'Show badge'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Share inspector session"
