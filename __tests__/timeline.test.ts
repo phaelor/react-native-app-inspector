@@ -41,6 +41,26 @@ describe('Timeline', () => {
     expect(timeline.trackAction('tap').screen).toBe('Home');
   });
 
+  it('grades interaction severity by RAIL thresholds', () => {
+    const { timeline } = makeTimeline();
+    expect(timeline.trackInteraction('instant', 99).severity).toBe('info');
+    expect(timeline.trackInteraction('noticeable', 100).severity).toBe('warn');
+    expect(timeline.trackInteraction('sluggish', 300).severity).toBe('error');
+    expect(timeline.trackInteraction('rounded', 99.6).severity).toBe('warn');
+  });
+
+  it('correlates a slow interaction with the events before it', () => {
+    const { timeline, at } = makeTimeline(1000);
+    at(1000);
+    timeline.trackRender('CheckoutList', 400, 'update');
+    at(1200);
+    const slow = timeline.trackInteraction('Place order', 450);
+
+    const correlation = timeline.correlate()!;
+    expect(correlation.event.id).toBe(slow.id);
+    expect(correlation.causes.map((c) => c.label)).toEqual(['CheckoutList']);
+  });
+
   it('grades network severity by duration', () => {
     const { timeline } = makeTimeline();
     expect(

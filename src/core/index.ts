@@ -21,6 +21,7 @@ import {
   type PersistedSession,
 } from '../modules/persistence';
 import { ScreenMonitor } from '../modules/screens';
+import { InteractionTracker } from '../modules/interactions';
 import { uid } from './uid';
 
 export * from './types';
@@ -61,6 +62,8 @@ export interface NativeMetricsProvider {
   stop(): void;
   getLatest(): NativeMetrics;
   getProcessStartTime(): Promise<number | undefined>;
+  /** Next presented frame's timestamp (ms, OS monotonic clock), or `null`. */
+  watchNextFrame(): Promise<number | null>;
 }
 
 /** Config with all module flags resolved; `storage` is held separately. */
@@ -105,6 +108,20 @@ class AppInspectorController {
       this.timeline.trackRender(id, ms, phase);
       if (this.config.modules.slowScreens) {
         this.screenMonitor.recordRender(id, ms);
+      }
+      this.interactionTracker.notifyCommit();
+    },
+  });
+  private readonly interactionTracker = new InteractionTracker({
+    watchFramePresentation: () =>
+      this.nativeMetrics?.watchNextFrame() ?? Promise.resolve(null),
+    captureContext: () => this.timeline.getCurrentScreen(),
+    onComplete: ({ label, latencyMs, context }) => {
+      // Attribute to the screen that was active at begin, not at completion.
+      const screen = typeof context === 'string' ? context : undefined;
+      this.timeline.trackInteraction(label, latencyMs, screen);
+      if (this.config.modules.slowScreens) {
+        this.screenMonitor.recordInteraction(label, latencyMs, screen);
       }
     },
   });
@@ -307,6 +324,20 @@ class AppInspectorController {
     return this.renderTracker;
   }
 
+  /** The interaction tracker — used by {@link InspectorPressable}. */
+  getInteractionTracker(): InteractionTracker {
+    return this.interactionTracker;
+  }
+
+  /**
+   * Start measuring a tap-to-response interaction manually; call the returned
+   * function when the UI has visibly responded. Pass the triggering touch's
+   * `e.nativeEvent.timestamp` for native-accurate timing.
+   */
+  beginInteraction(label: string, nativeTimestampMs?: number): () => void {
+    return this.interactionTracker.begin(label, { nativeTimestampMs });
+  }
+
   /** The unified performance timeline. */
   getTimeline(): Timeline {
     return this.timeline;
@@ -416,6 +447,7 @@ class AppInspectorController {
   clear(): void {
     this.timeline.clear();
     this.screenMonitor.clear();
+    this.interactionTracker.clear();
     this.store.clear();
   }
 }

@@ -15,12 +15,14 @@ export { AppInspector } from './core';
 // Components + state hook
 export {
   InspectorPanel,
+  InspectorPressable,
   InspectorProfiler,
   InspectorScreen,
   useInspectorState,
 } from './ui';
 export type {
   InspectorPanelProps,
+  InspectorPressableProps,
   InspectorProfilerProps,
   InspectorScreenProps,
 } from './ui';

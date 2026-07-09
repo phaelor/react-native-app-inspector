@@ -32,4 +32,8 @@ describe('NativeMetricsModule — native module not linked', () => {
       NativeMetricsModule.getProcessStartTime(),
     ).resolves.toBeUndefined();
   });
+
+  it('resolves null for the next presented frame', async () => {
+    await expect(NativeMetricsModule.watchNextFrame()).resolves.toBeNull();
+  });
 });

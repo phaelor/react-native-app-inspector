@@ -3,10 +3,14 @@ package com.appinspector
 import android.os.Build
 import android.os.Debug
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
 import android.view.Choreographer
+import android.view.FrameMetrics
+import android.view.Window
+import java.util.concurrent.atomic.AtomicBoolean
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -34,6 +38,18 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
   private var emitRunnable: Runnable? = null
   private var lastCpuTicks = -1L
   private var lastCpuAt = 0L
+
+  // FrameMetrics callbacks run off the UI thread so the watch does not perturb
+  // the frame timing it measures.
+  private val frameMetricsHandler: Handler by lazy {
+    val thread = HandlerThread("AppInspectorFrameMetrics")
+    thread.start()
+    Handler(thread.looper)
+  }
+
+  private companion object {
+    const val WATCH_FRAME_TIMEOUT_MS = 3000L
+  }
 
   override fun getName(): String = "AppInspector"
 
@@ -127,6 +143,64 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
     } catch (e: Exception) {
       0.0
     }
+  }
+
+  // Presentation time (ms, uptime clock — same clock as MotionEvent.getEventTime)
+  // of the next frame the app draws; -1.0 when nothing is drawn in time.
+  @ReactMethod
+  fun watchNextFrame(promise: Promise) {
+    handler.post {
+      val window = currentActivity?.window
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && window != null) {
+        watchViaFrameMetrics(window, promise)
+      } else {
+        Choreographer.getInstance().postFrameCallback { frameTimeNanos ->
+          promise.resolve(frameTimeNanos / 1_000_000.0)
+        }
+      }
+    }
+  }
+
+  private fun watchViaFrameMetrics(window: Window, promise: Promise) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val resolved = AtomicBoolean(false)
+    val listener = object : Window.OnFrameMetricsAvailableListener {
+      override fun onFrameMetricsAvailable(
+        w: Window,
+        metrics: FrameMetrics,
+        dropCountSinceLastInvocation: Int,
+      ) {
+        if (!resolved.compareAndSet(false, true)) return
+        handler.post {
+          try {
+            window.removeOnFrameMetricsAvailableListener(this)
+          } catch (e: Exception) {
+          }
+        }
+        val presentedNanos =
+          metrics.getMetric(FrameMetrics.VSYNC_TIMESTAMP) +
+            metrics.getMetric(FrameMetrics.TOTAL_DURATION)
+        promise.resolve(presentedNanos / 1_000_000.0)
+      }
+    }
+    try {
+      window.addOnFrameMetricsAvailableListener(listener, frameMetricsHandler)
+    } catch (e: Exception) {
+      Choreographer.getInstance().postFrameCallback { frameTimeNanos ->
+        promise.resolve(frameTimeNanos / 1_000_000.0)
+      }
+      return
+    }
+    // A commit with no visual change draws no frame — don't hang the promise.
+    handler.postDelayed({
+      if (resolved.compareAndSet(false, true)) {
+        try {
+          window.removeOnFrameMetricsAvailableListener(listener)
+        } catch (e: Exception) {
+        }
+        promise.resolve(-1.0)
+      }
+    }, WATCH_FRAME_TIMEOUT_MS)
   }
 
   @ReactMethod

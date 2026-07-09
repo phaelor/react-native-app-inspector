@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {InspectorProfiler} from 'react-native-app-inspector';
+import {InspectorPressable, InspectorProfiler} from 'react-native-app-inspector';
 import type {Todo} from './todoApi';
 import type {UseTodos} from './useTodos';
 
@@ -23,14 +23,17 @@ function TodoRow({
 }): React.JSX.Element {
   return (
     <View style={styles.row}>
-      <TouchableOpacity style={styles.rowMain} onPress={onToggle}>
+      <InspectorPressable
+        label="Toggle todo"
+        style={({pressed}) => [styles.rowMain, pressed && styles.pressed]}
+        onPress={onToggle}>
         <View style={[styles.checkbox, todo.done && styles.checkboxDone]}>
           {todo.done ? <Text style={styles.check}>✓</Text> : null}
         </View>
         <Text style={[styles.title, todo.done && styles.titleDone]}>
           {todo.title}
         </Text>
-      </TouchableOpacity>
+      </InspectorPressable>
       <TouchableOpacity onPress={onDelete} hitSlop={8}>
         <Text style={styles.delete}>✕</Text>
       </TouchableOpacity>
@@ -69,12 +72,17 @@ export function TodoListScreen({
           onSubmitEditing={onAdd}
           returnKeyType="done"
         />
-        <TouchableOpacity
-          style={[styles.addButton, saving && styles.addButtonBusy]}
+        <InspectorPressable
+          label="Add todo"
+          style={({pressed}) => [
+            styles.addButton,
+            saving && styles.addButtonBusy,
+            pressed && styles.pressed,
+          ]}
           onPress={onAdd}
           disabled={saving}>
           <Text style={styles.addButtonText}>{saving ? '…' : 'Add'}</Text>
-        </TouchableOpacity>
+        </InspectorPressable>
       </View>
 
       <InspectorProfiler id="TodoList">
@@ -118,6 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButtonBusy: {opacity: 0.6},
+  pressed: {opacity: 0.55},
   addButtonText: {color: '#ffffff', fontWeight: '700', fontSize: 15},
   loader: {marginTop: 32},
   row: {

@@ -16,6 +16,7 @@ const TYPE_TAG: Record<TimelineEvent['type'], string> = {
   fps: 'FPS',
   memory: 'MEM',
   error: 'ERR',
+  interaction: 'TAP',
 };
 
 const SEVERITY_FILTERS: Array<{
