@@ -15,16 +15,21 @@ export { AppInspector } from './core';
 // Components + state hook
 export {
   InspectorPanel,
+  InspectorFpsBadge,
   InspectorPressable,
   InspectorProfiler,
   InspectorScreen,
   useInspectorState,
+  ThemeProvider,
 } from './ui';
 export type {
   InspectorPanelProps,
+  InspectorFpsBadgeProps,
+  BadgeCorner,
   InspectorPressableProps,
   InspectorProfilerProps,
   InspectorScreenProps,
+  Theme,
 } from './ui';
 
 // React Navigation integration

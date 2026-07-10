@@ -5,7 +5,7 @@ import { AppInspector } from '../../core';
 import type { InspectorState } from '../../core';
 import type { TimelineEvent, TimelineSeverity } from '../../core/types';
 import { Row } from './Row';
-import { panelStyles as styles } from './styles';
+import { usePanelStyles } from './styles';
 
 const TYPE_TAG: Record<TimelineEvent['type'], string> = {
   lifecycle: 'LIFE',
@@ -53,6 +53,7 @@ const seconds = (ms: number): string => `${(ms / 1000).toFixed(2)}s`;
  * emoji glyphs are missing on some devices and render as "?".
  */
 function CauseBanner({ summary }: { summary: string }): ReactElement {
+  const { styles } = usePanelStyles();
   return (
     <View style={styles.cause}>
       <View style={styles.causeIcon}>
@@ -70,6 +71,7 @@ function TimelineDetail({
   event: TimelineEvent;
   onBack: () => void;
 }): ReactElement {
+  const { styles } = usePanelStyles();
   const correlation = AppInspector.correlate(event);
   const dataEntries = event.data ? Object.entries(event.data) : [];
 
@@ -109,6 +111,7 @@ function TimelineEventRow({
   event: TimelineEvent;
   onPress: () => void;
 }): ReactElement {
+  const { styles } = usePanelStyles();
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -134,6 +137,7 @@ export function TimelineTab({
 }: {
   state: InspectorState;
 }): ReactElement {
+  const { styles } = usePanelStyles();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | TimelineSeverity>('all');
   const events = state.timeline;

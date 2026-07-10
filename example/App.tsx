@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import {
   AppInspector,
+  InspectorFpsBadge,
   InspectorPanel,
   type PersistenceAdapter,
 } from 'react-native-app-inspector';
@@ -82,6 +83,7 @@ function HeaderTab({
 function App(): React.JSX.Element {
   const [screen, setScreen] = useState<Screen>('todos');
   const [panelOpen, setPanelOpen] = useState(false);
+  const [badgeVisible, setBadgeVisible] = useState(true);
   const todos = useTodos();
 
   useEffect(() => {
@@ -148,7 +150,17 @@ function App(): React.JSX.Element {
         )}
       </View>
 
-      <InspectorPanel visible={panelOpen} initialTab="timeline" />
+      <InspectorFpsBadge
+        visible={badgeVisible}
+        initialCorner="bottom-left"
+        onPress={() => setPanelOpen(open => !open)}
+      />
+      <InspectorPanel
+        visible={panelOpen}
+        initialTab="timeline"
+        badgeVisible={badgeVisible}
+        onToggleBadge={() => setBadgeVisible(v => !v)}
+      />
     </SafeAreaView>
   );
 }
