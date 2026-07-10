@@ -122,11 +122,15 @@ function TimelineEventRow({
         style={[styles.dot, { backgroundColor: severityColor(event.severity) }]}
       />
       <Text style={styles.eventTime}>{seconds(event.sinceStartMs)}</Text>
-      <Text style={styles.eventType}>{TYPE_TAG[event.type]}</Text>
+      <View style={styles.tagChip}>
+        <Text style={styles.tagText}>{TYPE_TAG[event.type]}</Text>
+      </View>
       <Text style={styles.eventLabel} numberOfLines={1}>
         {event.label}
-        {event.durationMs !== undefined ? `  ${event.durationMs}ms` : ''}
       </Text>
+      {event.durationMs !== undefined ? (
+        <Text style={styles.eventMeta}>{event.durationMs}ms</Text>
+      ) : null}
     </TouchableOpacity>
   );
 }

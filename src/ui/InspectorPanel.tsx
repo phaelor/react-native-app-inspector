@@ -1,17 +1,14 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import type { PerformanceSample } from '../core/types';
 import { shareLogs } from '../export/share';
 import { useInspectorState } from './useInspectorState';
 import { PerformanceTab } from './panel/PerformanceTab';
 import { TimelineTab } from './panel/TimelineTab';
 import { ScreensTab } from './panel/ScreensTab';
 import { StartupTab } from './panel/StartupTab';
+import { StatusStrip } from './panel/StatusStrip';
 import { usePanelStyles } from './panel/styles';
-import { fpsColor } from './theme';
-import type { PanelStyles } from './panel/styles';
-import type { Theme } from './theme';
 
 type Tab = 'timeline' | 'performance' | 'screens' | 'startup';
 
@@ -33,45 +30,6 @@ export interface InspectorPanelProps {
   onToggleBadge?: () => void;
 }
 
-/** Compact, always-visible live summary: FPS · CPU · MEM. */
-function StatusStrip({
-  latest,
-  styles,
-  theme,
-}: {
-  latest: PerformanceSample | undefined;
-  styles: PanelStyles;
-  theme: Theme;
-}): ReactElement {
-  const fps = latest?.uiFps && latest.uiFps > 0 ? latest.uiFps : latest?.jsFps;
-  return (
-    <View style={styles.status}>
-      <View style={styles.statusItem}>
-        <Text
-          style={[styles.statusValue, { color: fpsColor(theme, fps ?? 0) }]}
-        >
-          {fps !== undefined && fps > 0 ? fps : '—'}
-        </Text>
-        <Text style={styles.statusLabel}>fps</Text>
-      </View>
-      <View style={styles.statusItem}>
-        <Text style={styles.statusValue}>
-          {latest?.cpuPercent !== undefined ? `${latest.cpuPercent}%` : '—'}
-        </Text>
-        <Text style={styles.statusLabel}>cpu</Text>
-      </View>
-      <View style={styles.statusItem}>
-        <Text style={styles.statusValue}>
-          {latest?.usedMemoryMb !== undefined
-            ? `${Math.round(latest.usedMemoryMb)}`
-            : '—'}
-        </Text>
-        <Text style={styles.statusLabel}>mb</Text>
-      </View>
-    </View>
-  );
-}
-
 /**
  * The in-app debug panel overlay: a glanceable live summary plus a tabbed view
  * over the inspector state (timeline, performance, screens, startup). Toggle
@@ -85,7 +43,7 @@ export function InspectorPanel({
 }: InspectorPanelProps): ReactElement | null {
   const [tab, setTab] = useState<Tab>(initialTab);
   const state = useInspectorState();
-  const { styles, theme } = usePanelStyles();
+  const { styles } = usePanelStyles();
 
   if (!visible) {
     return null;
@@ -96,7 +54,7 @@ export function InspectorPanel({
   return (
     <View style={styles.container} pointerEvents="box-none">
       <View style={styles.panel}>
-        <StatusStrip latest={latest} styles={styles} theme={theme} />
+        <StatusStrip latest={latest} />
 
         <View style={styles.tabs}>
           {(Object.keys(TAB_LABELS) as Tab[]).map((key) => (

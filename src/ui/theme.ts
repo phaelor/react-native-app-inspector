@@ -12,9 +12,13 @@ export interface Theme {
   faint: string;
   accent: string;
   accentText: string;
+  /** Soft accent wash for chips and tags. */
+  accentSoft: string;
   good: string;
   warn: string;
   bad: string;
+  /** Soft danger wash for banners. */
+  badSoft: string;
 }
 
 export const darkTheme: Theme = {
@@ -27,9 +31,11 @@ export const darkTheme: Theme = {
   faint: '#5b606e',
   accent: '#6aa8ff',
   accentText: '#06203d',
+  accentSoft: 'rgba(106, 168, 255, 0.14)',
   good: '#34d399',
   warn: '#fbbf24',
   bad: '#f87171',
+  badSoft: 'rgba(248, 113, 113, 0.14)',
 };
 
 export const lightTheme: Theme = {
@@ -42,9 +48,11 @@ export const lightTheme: Theme = {
   faint: '#9aa0ad',
   accent: '#2563eb',
   accentText: '#ffffff',
+  accentSoft: 'rgba(37, 99, 235, 0.10)',
   good: '#059669',
   warn: '#d97706',
   bad: '#dc2626',
+  badSoft: 'rgba(220, 38, 38, 0.10)',
 };
 
 const ThemeContext = createContext<Theme | null>(null);

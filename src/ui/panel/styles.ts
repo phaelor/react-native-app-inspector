@@ -125,7 +125,7 @@ export function makePanelStyles(t: Theme) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: 8,
-      backgroundColor: 'rgba(248, 113, 113, 0.14)',
+      backgroundColor: t.badSoft,
       borderRadius: 10,
       padding: 9,
       marginBottom: 8,
@@ -154,11 +154,11 @@ export function makePanelStyles(t: Theme) {
     eventRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 4,
+      paddingVertical: 7,
     },
     dot: {
-      width: 7,
-      height: 7,
+      width: 8,
+      height: 8,
       borderRadius: 4,
       marginRight: 9,
     },
@@ -168,16 +168,31 @@ export function makePanelStyles(t: Theme) {
       width: 46,
       fontVariant: ['tabular-nums'],
     },
-    eventType: {
+    tagChip: {
+      backgroundColor: t.accentSoft,
+      borderRadius: 6,
+      paddingVertical: 2,
+      paddingHorizontal: 6,
+      minWidth: 40,
+      alignItems: 'center',
+      marginRight: 9,
+    },
+    tagText: {
       color: t.accent,
-      fontSize: 10,
-      fontWeight: '700',
-      width: 32,
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 0.3,
     },
     eventLabel: {
       color: t.text,
-      fontSize: 12,
+      fontSize: 13,
       flex: 1,
+    },
+    eventMeta: {
+      color: t.faint,
+      fontSize: 11,
+      fontVariant: ['tabular-nums'],
+      marginLeft: 8,
     },
 
     // Filter chips
@@ -289,14 +304,16 @@ export function makePanelStyles(t: Theme) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 14,
-      paddingVertical: 8,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: 6,
     },
     title: {
       color: t.text,
-      fontSize: 17,
+      fontSize: 24,
       fontWeight: '800',
       flex: 1,
+      letterSpacing: -0.4,
     },
     headerBtn: {
       minWidth: 44,
@@ -307,11 +324,97 @@ export function makePanelStyles(t: Theme) {
     },
     headerBtnText: {
       color: t.accent,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '700',
     },
-    headerBtnDanger: {
-      color: t.bad,
+
+    // Live status card
+    statusCard: {
+      backgroundColor: t.surface,
+      borderRadius: 14,
+      marginHorizontal: 16,
+      marginBottom: 10,
+    },
+
+    // Paused indicator in the header
+    pausedChip: {
+      backgroundColor: t.surface,
+      borderRadius: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      marginRight: 6,
+    },
+    pausedChipText: {
+      color: t.warn,
+      fontSize: 11,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+
+    // Settings rows
+    settingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      minHeight: 48,
+      paddingVertical: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: t.divider,
+    },
+    settingLabel: {
+      color: t.text,
+      fontSize: 14,
+      fontWeight: '600',
+      flex: 1,
+    },
+    settingValue: {
+      color: t.muted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+
+    // Pill tab bar
+    tabsRow: {
+      paddingHorizontal: 16,
+      paddingBottom: 10,
+    },
+    tabPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      minHeight: 38,
+      borderRadius: 19,
+      backgroundColor: t.surface,
+      paddingHorizontal: 15,
+      marginRight: 8,
+      justifyContent: 'center',
+    },
+    tabPillActive: {
+      backgroundColor: t.accent,
+    },
+    tabPillText: {
+      color: t.muted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    tabPillTextActive: {
+      color: t.accentText,
+    },
+    tabCount: {
+      backgroundColor: t.bad,
+      borderRadius: 9,
+      minWidth: 18,
+      height: 18,
+      paddingHorizontal: 5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabCountText: {
+      color: '#ffffff',
+      fontSize: 10,
+      fontWeight: '800',
     },
 
     // Search field
@@ -327,6 +430,9 @@ export function makePanelStyles(t: Theme) {
 
     // Perf sparklines
     chartRow: {
+      backgroundColor: t.surface,
+      borderRadius: 12,
+      padding: 12,
       marginBottom: 10,
     },
     chartHead: {
@@ -353,20 +459,28 @@ export function makePanelStyles(t: Theme) {
     netRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 7,
+      paddingVertical: 10,
       gap: 8,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.divider,
     },
-    netMethod: {
+    methodChip: {
+      backgroundColor: t.accentSoft,
+      borderRadius: 6,
+      paddingVertical: 2,
+      paddingHorizontal: 6,
+      minWidth: 48,
+      alignItems: 'center',
+    },
+    methodText: {
       color: t.accent,
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: '800',
-      width: 42,
+      letterSpacing: 0.3,
     },
     netUrl: {
       color: t.text,
-      fontSize: 12,
+      fontSize: 13,
       flex: 1,
     },
     netMeta: {

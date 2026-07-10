@@ -115,7 +115,9 @@ function NetworkRow({
       onPress={onPress}
       style={styles.netRow}
     >
-      <Text style={styles.netMethod}>{entry.method}</Text>
+      <View style={styles.methodChip}>
+        <Text style={styles.methodText}>{entry.method}</Text>
+      </View>
       <Text style={styles.netUrl} numberOfLines={1}>
         {entry.url}
       </Text>

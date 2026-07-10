@@ -5,6 +5,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -18,9 +19,16 @@ import { NetworkTab } from './panel/NetworkTab';
 import { PerformanceTab } from './panel/PerformanceTab';
 import { ScreensTab } from './panel/ScreensTab';
 import { StartupTab } from './panel/StartupTab';
+import { StatusStrip } from './panel/StatusStrip';
 import { usePanelStyles } from './panel/styles';
 
-type Tab = 'timeline' | 'network' | 'performance' | 'screens' | 'startup';
+type Tab =
+  | 'timeline'
+  | 'network'
+  | 'performance'
+  | 'screens'
+  | 'startup'
+  | 'settings';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'timeline', label: 'Timeline' },
@@ -28,6 +36,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'performance', label: 'Perf' },
   { key: 'screens', label: 'Screens' },
   { key: 'startup', label: 'Startup' },
+  { key: 'settings', label: 'Settings' },
 ];
 
 export interface InspectorModalProps {
@@ -65,10 +74,78 @@ function useReduceMotion(): boolean {
   return reduce;
 }
 
+function SettingsView({
+  paused,
+  onTogglePause,
+  onClear,
+  badgeVisible,
+  onToggleBadge,
+}: {
+  paused: boolean;
+  onTogglePause: () => void;
+  onClear: () => void;
+  badgeVisible: boolean;
+  onToggleBadge?: () => void;
+}): ReactElement {
+  const { styles, theme } = usePanelStyles();
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>Session</Text>
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={onTogglePause}
+        style={styles.settingRow}
+      >
+        <Text style={styles.settingLabel}>
+          {paused ? 'Resume live updates' : 'Pause live updates'}
+        </Text>
+        <Text style={[styles.settingValue, paused && { color: theme.warn }]}>
+          {paused ? 'Paused' : 'Live'}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Share inspector session"
+        onPress={() => {
+          void shareLogs();
+        }}
+        style={styles.settingRow}
+      >
+        <Text style={styles.settingLabel}>Share session</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={onClear}
+        style={styles.settingRow}
+      >
+        <Text style={[styles.settingLabel, { color: theme.bad }]}>
+          Clear session
+        </Text>
+      </TouchableOpacity>
+
+      {onToggleBadge ? (
+        <>
+          <Text style={styles.sectionTitle}>Display</Text>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Floating badge</Text>
+            <Switch
+              accessibilityLabel="Toggle floating badge"
+              value={badgeVisible}
+              onValueChange={onToggleBadge}
+              trackColor={{ true: theme.accent }}
+            />
+          </View>
+        </>
+      ) : null}
+    </View>
+  );
+}
+
 /**
  * Full-screen inspector covering the app: timeline, network, performance,
- * screens and startup views, plus pause / clear / share. Toggle with
- * `visible`; the host decides when to show it.
+ * screens and startup views, plus a settings tab with pause / clear / share
+ * and the badge switch. Toggle with `visible`; the host decides when to show
+ * it.
  */
 export function InspectorModal({
   visible = false,
@@ -97,7 +174,16 @@ export function InspectorModal({
     setSearch('');
   };
 
+  // Resume on clear so the wipe is visible immediately, not after Resume.
+  const handleClear = (): void => {
+    AppInspector.clear();
+    setPaused(false);
+  };
+
   const searchable = tab === 'timeline' || tab === 'network';
+  const errorCount = state.timeline.filter(
+    (e) => e.severity === 'error',
+  ).length;
 
   return (
     <Modal
@@ -108,34 +194,11 @@ export function InspectorModal({
       <SafeAreaView style={styles.fullscreen}>
         <View style={styles.header}>
           <Text style={styles.title}>Inspector</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => setPaused((p) => !p)}
-            style={styles.headerBtn}
-          >
-            <Text style={styles.headerBtnText}>
-              {paused ? 'Resume' : 'Pause'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => AppInspector.clear()}
-            style={styles.headerBtn}
-          >
-            <Text style={[styles.headerBtnText, styles.headerBtnDanger]}>
-              Clear
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Share inspector session"
-            onPress={() => {
-              void shareLogs();
-            }}
-            style={styles.headerBtn}
-          >
-            <Text style={styles.headerBtnText}>Share</Text>
-          </TouchableOpacity>
+          {paused ? (
+            <View style={styles.pausedChip}>
+              <Text style={styles.pausedChipText}>Paused</Text>
+            </View>
+          ) : null}
           <TouchableOpacity
             accessibilityRole="button"
             onPress={onClose}
@@ -145,7 +208,13 @@ export function InspectorModal({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.tabs}>
+        <View style={styles.statusCard}>
+          <StatusStrip
+            latest={state.performance[state.performance.length - 1]}
+          />
+        </View>
+
+        <View style={styles.tabsRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {TABS.map(({ key, label }) => (
               <TouchableOpacity
@@ -153,26 +222,23 @@ export function InspectorModal({
                 accessibilityRole="button"
                 accessibilityState={{ selected: tab === key }}
                 onPress={() => selectTab(key)}
-                style={[styles.tab, tab === key && styles.tabActive]}
+                style={[styles.tabPill, tab === key && styles.tabPillActive]}
               >
                 <Text
-                  style={[styles.tabText, tab === key && styles.tabTextActive]}
+                  style={[
+                    styles.tabPillText,
+                    tab === key && styles.tabPillTextActive,
+                  ]}
                 >
                   {label}
                 </Text>
+                {key === 'timeline' && errorCount > 0 ? (
+                  <View style={styles.tabCount}>
+                    <Text style={styles.tabCountText}>{errorCount}</Text>
+                  </View>
+                ) : null}
               </TouchableOpacity>
             ))}
-            {onToggleBadge ? (
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={onToggleBadge}
-                style={styles.tab}
-              >
-                <Text style={styles.tabText}>
-                  {badgeVisible ? 'Hide badge' : 'Show badge'}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
           </ScrollView>
         </View>
 
@@ -180,7 +246,9 @@ export function InspectorModal({
           <View style={styles.body}>
             <TextInput
               style={styles.search}
-              placeholder="Search…"
+              placeholder={
+                tab === 'network' ? 'Search requests…' : 'Search events…'
+              }
               placeholderTextColor={theme.faint}
               value={search}
               onChangeText={setSearch}
@@ -200,6 +268,15 @@ export function InspectorModal({
           {tab === 'performance' && <PerformanceTab state={state} />}
           {tab === 'screens' && <ScreensTab state={state} />}
           {tab === 'startup' && <StartupTab state={state} />}
+          {tab === 'settings' && (
+            <SettingsView
+              paused={paused}
+              onTogglePause={() => setPaused((p) => !p)}
+              onClear={handleClear}
+              badgeVisible={badgeVisible}
+              onToggleBadge={onToggleBadge}
+            />
+          )}
         </ScrollView>
       </SafeAreaView>
     </Modal>
