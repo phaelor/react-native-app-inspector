@@ -277,6 +277,123 @@ export function makePanelStyles(t: Theme) {
       fontSize: 12,
       fontWeight: '600',
     },
+
+    // Full-screen modal
+    fullscreen: {
+      flex: 1,
+      backgroundColor: t.bg,
+    },
+    bodyFill: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    title: {
+      color: t.text,
+      fontSize: 17,
+      fontWeight: '800',
+      flex: 1,
+    },
+    headerBtn: {
+      minWidth: 44,
+      minHeight: 44,
+      paddingHorizontal: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerBtnText: {
+      color: t.accent,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    headerBtnDanger: {
+      color: t.bad,
+    },
+
+    // Search field
+    search: {
+      backgroundColor: t.surface,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      color: t.text,
+      fontSize: 13,
+      marginBottom: 8,
+    },
+
+    // Perf sparklines
+    chartRow: {
+      marginBottom: 10,
+    },
+    chartHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'baseline',
+      marginBottom: 4,
+    },
+    chartLabel: {
+      color: t.faint,
+      fontSize: 10,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    chartValue: {
+      color: t.text,
+      fontSize: 13,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+
+    // Network rows
+    netRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 7,
+      gap: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: t.divider,
+    },
+    netMethod: {
+      color: t.accent,
+      fontSize: 10,
+      fontWeight: '800',
+      width: 42,
+    },
+    netUrl: {
+      color: t.text,
+      fontSize: 12,
+      flex: 1,
+    },
+    netMeta: {
+      color: t.muted,
+      fontSize: 11,
+      fontVariant: ['tabular-nums'],
+    },
+    netStatus: {
+      fontSize: 11,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+      width: 30,
+      textAlign: 'right',
+    },
+    codeBlock: {
+      backgroundColor: t.surface,
+      borderRadius: 8,
+      padding: 8,
+      marginTop: 4,
+      marginBottom: 8,
+    },
+    codeText: {
+      color: t.muted,
+      fontSize: 11,
+      fontFamily: 'Courier',
+      lineHeight: 15,
+    },
   });
 }
 

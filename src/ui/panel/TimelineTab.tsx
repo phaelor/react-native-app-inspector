@@ -134,8 +134,10 @@ function TimelineEventRow({
 /** Unified timeline with severity filter, correlation banner and tap-to-detail. */
 export function TimelineTab({
   state,
+  search = '',
 }: {
   state: InspectorState;
+  search?: string;
 }): ReactElement {
   const { styles } = usePanelStyles();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -160,9 +162,13 @@ export function TimelineTab({
     );
   }
 
+  const query = search.trim().toLowerCase();
   const correlation = AppInspector.correlate();
   const recent = events
     .filter((event) => filter === 'all' || event.severity === filter)
+    .filter(
+      (event) => query === '' || event.label.toLowerCase().includes(query),
+    )
     .slice(-40)
     .reverse();
 

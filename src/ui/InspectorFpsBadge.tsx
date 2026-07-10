@@ -107,7 +107,9 @@ export function InspectorFpsBadge({
 
   const responder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
+      // Capture so a drag wins over the inner Pressable once it moves; a pure
+      // tap never crosses the threshold and still reaches the Pressable.
+      onMoveShouldSetPanResponderCapture: (_, g) =>
         Math.abs(g.dx) > DRAG_THRESHOLD || Math.abs(g.dy) > DRAG_THRESHOLD,
       onPanResponderGrant: () => {
         pan.setOffset(pos.current);

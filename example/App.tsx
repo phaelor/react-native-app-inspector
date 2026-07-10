@@ -25,7 +25,7 @@ import {
 import {
   AppInspector,
   InspectorFpsBadge,
-  InspectorPanel,
+  InspectorModal,
   type PersistenceAdapter,
 } from 'react-native-app-inspector';
 import {TodoListScreen} from './src/TodoListScreen';
@@ -155,8 +155,9 @@ function App(): React.JSX.Element {
         initialCorner="bottom-left"
         onPress={() => setPanelOpen(open => !open)}
       />
-      <InspectorPanel
+      <InspectorModal
         visible={panelOpen}
+        onClose={() => setPanelOpen(false)}
         initialTab="timeline"
         badgeVisible={badgeVisible}
         onToggleBadge={() => setBadgeVisible(v => !v)}

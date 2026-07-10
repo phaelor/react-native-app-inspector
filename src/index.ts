@@ -15,6 +15,7 @@ export { AppInspector } from './core';
 // Components + state hook
 export {
   InspectorPanel,
+  InspectorModal,
   InspectorFpsBadge,
   InspectorPressable,
   InspectorProfiler,
@@ -24,6 +25,7 @@ export {
 } from './ui';
 export type {
   InspectorPanelProps,
+  InspectorModalProps,
   InspectorFpsBadgeProps,
   BadgeCorner,
   InspectorPressableProps,
