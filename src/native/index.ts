@@ -1,15 +1,19 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import type { NativeMetricsProvider } from '../core';
-import type { NativeMetrics } from '../core/types';
+import type { NativeMetrics, NativeNetworkEvent } from '../core/types';
 
 interface AppInspectorNativeModule {
   startMonitoring(intervalMs: number): void;
   stopMonitoring(): void;
   getProcessStartTime(): Promise<number>;
   watchNextFrame(): Promise<number>;
+  /** Present from the version that ships the native network interceptor. */
+  startNetworkCapture?(): void;
+  stopNetworkCapture?(): void;
 }
 
 const EVENT_NAME = 'AppInspectorMetrics';
+const NETWORK_EVENT_NAME = 'AppInspectorNetwork';
 
 const LINKING_HINT =
   '[react-native-app-inspector] native module not linked — rebuild the app ' +
@@ -29,10 +33,18 @@ class NativeMetricsBridge implements NativeMetricsProvider {
   private latest: NativeMetrics = { uiFps: 0, usedMemoryMb: 0, cpuPercent: 0 };
   private emitter: NativeEventEmitter | null = null;
   private subscription: { remove(): void } | null = null;
+  private networkSubscription: { remove(): void } | null = null;
   private warned = false;
 
   isAvailable(): boolean {
     return nativeModule != null;
+  }
+
+  private getEmitter(): NativeEventEmitter {
+    if (!this.emitter) {
+      this.emitter = new NativeEventEmitter(NativeModules.AppInspector);
+    }
+    return this.emitter;
   }
 
   start(intervalMs: number): void {
@@ -40,10 +52,7 @@ class NativeMetricsBridge implements NativeMetricsProvider {
       this.warnMissing();
       return;
     }
-    if (!this.emitter) {
-      this.emitter = new NativeEventEmitter(NativeModules.AppInspector);
-    }
-    this.subscription = this.emitter.addListener(
+    this.subscription = this.getEmitter().addListener(
       EVENT_NAME,
       (metrics: NativeMetrics) => {
         this.latest = metrics;
@@ -72,6 +81,28 @@ class NativeMetricsBridge implements NativeMetricsProvider {
     } catch {
       return undefined;
     }
+  }
+
+  supportsNetworkCapture(): boolean {
+    return typeof nativeModule?.startNetworkCapture === 'function';
+  }
+
+  startNetworkCapture(onEntry: (event: NativeNetworkEvent) => void): void {
+    if (!this.supportsNetworkCapture()) {
+      return;
+    }
+    this.networkSubscription?.remove();
+    this.networkSubscription = this.getEmitter().addListener(
+      NETWORK_EVENT_NAME,
+      onEntry,
+    );
+    nativeModule?.startNetworkCapture?.();
+  }
+
+  stopNetworkCapture(): void {
+    this.networkSubscription?.remove();
+    this.networkSubscription = null;
+    nativeModule?.stopNetworkCapture?.();
   }
 
   async watchNextFrame(): Promise<number | null> {

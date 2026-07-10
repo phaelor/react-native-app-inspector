@@ -204,6 +204,30 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun startNetworkCapture() {
+    AppInspectorNetwork.enabled = true
+    AppInspectorNetwork.listener = { method, url, status, startedAt, durationMs ->
+      if (reactContext.hasActiveReactInstance()) {
+        val map = Arguments.createMap()
+        map.putString("method", method)
+        map.putString("url", url)
+        map.putInt("status", status)
+        map.putDouble("startedAt", startedAt.toDouble())
+        map.putDouble("durationMs", durationMs.toDouble())
+        reactContext
+          .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+          .emit("AppInspectorNetwork", map)
+      }
+    }
+  }
+
+  @ReactMethod
+  fun stopNetworkCapture() {
+    AppInspectorNetwork.enabled = false
+    AppInspectorNetwork.listener = null
+  }
+
+  @ReactMethod
   fun getProcessStartTime(promise: Promise) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
       val sinceStart = SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()

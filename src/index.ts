@@ -75,6 +75,7 @@ export type {
   NetworkLogEntry,
   ActionLogEntry,
   DeviceInfoSnapshot,
+  NativeNetworkEvent,
   PerformanceSample,
   RenderStat,
   StartupMark,

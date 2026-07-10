@@ -1,55 +1,47 @@
-import {AppInspector} from 'react-native-app-inspector';
-
 export interface Todo {
   id: string;
   title: string;
   done: boolean;
 }
 
-const BASE = 'https://api.todos.dev';
+const BASE = 'https://jsonplaceholder.typicode.com';
 
-const delay = (ms: number): Promise<void> =>
-  new Promise(resolve => setTimeout(resolve, ms));
-
-/**
- * A fake API client. Each call simulates latency and reports itself to the
- * inspector timeline via AppInspector.trackNetwork — exactly how a real
- * fetch/XHR interceptor would feed it.
- */
-async function request<T>(
-  method: string,
-  path: string,
-  ms: number,
-  result: T,
-): Promise<T> {
-  const start = Date.now();
-  await delay(ms);
-  AppInspector.trackNetwork({
-    method,
-    url: `${BASE}${path}`,
-    status: 200,
-    durationMs: Date.now() - start,
-  });
-  return result;
+interface RemoteTodo {
+  id: number;
+  title: string;
+  completed: boolean;
 }
 
-let seq = 3;
-const seed: Todo[] = [
-  {id: '1', title: 'Set up CI', done: true},
-  {id: '2', title: 'Wire the performance timeline', done: true},
-  {id: '3', title: 'Ship the Todo example', done: false},
-];
-
+/** Real API client — no inspector code; capture is automatic. */
 export const todoApi = {
-  fetchTodos: (): Promise<Todo[]> => request('GET', '/todos', 600, [...seed]),
-  createTodo: (title: string): Promise<Todo> => {
-    const todo: Todo = {id: String(++seq), title, done: false};
-    // Saving is intentionally variable so some calls land as "slow" (>1s).
-    const latency = 400 + Math.floor(Math.random() * 1400);
-    return request('POST', '/todos', latency, todo);
+  fetchTodos: async (): Promise<Todo[]> => {
+    const res = await fetch(`${BASE}/todos?_limit=5`);
+    const list = (await res.json()) as RemoteTodo[];
+    return list.map(t => ({
+      id: String(t.id),
+      title: t.title,
+      done: t.completed,
+    }));
   },
-  updateTodo: (todo: Todo): Promise<Todo> =>
-    request('PATCH', `/todos/${todo.id}`, 300, todo),
-  deleteTodo: (id: string): Promise<string> =>
-    request('DELETE', `/todos/${id}`, 250, id),
+  createTodo: async (title: string): Promise<Todo> => {
+    const res = await fetch(`${BASE}/todos`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title, completed: false, userId: 1}),
+    });
+    const created = (await res.json()) as {id: number};
+    return {id: String(created.id), title, done: false};
+  },
+  updateTodo: async (todo: Todo): Promise<Todo> => {
+    await fetch(`${BASE}/todos/${todo.id}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({completed: todo.done}),
+    }).catch(() => {});
+    return todo;
+  },
+  deleteTodo: async (id: string): Promise<string> => {
+    await fetch(`${BASE}/todos/${id}`, {method: 'DELETE'}).catch(() => {});
+    return id;
+  },
 };

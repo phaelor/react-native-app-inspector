@@ -8,7 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {InspectorPressable, InspectorProfiler} from 'react-native-app-inspector';
+import {
+  InspectorPressable,
+  InspectorProfiler,
+} from 'react-native-app-inspector';
 import type {Todo} from './todoApi';
 import type {UseTodos} from './useTodos';
 

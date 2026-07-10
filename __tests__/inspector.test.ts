@@ -5,7 +5,8 @@ import { buildSnapshot, exportLogs } from '../src/export';
 import { PerformanceMonitor } from '../src/modules/performance';
 import { RenderTracker } from '../src/modules/render';
 import { StartupTracker } from '../src/modules/startup';
-import type { PerformanceSample } from '../src/core/types';
+import type { NativeNetworkEvent, PerformanceSample } from '../src/core/types';
+import type { NativeMetricsProvider } from '../src/core';
 
 const sampleFixture = (jsFps: number): PerformanceSample => ({
   timestamp: 1,
@@ -59,6 +60,83 @@ describe('AppInspector controller', () => {
 
     expect(seen).toEqual([1, 2]); // listener not called after unsubscribe
     expect(AppInspector.getState().performance).toHaveLength(3); // data still stored
+  });
+});
+
+describe('native network capture', () => {
+  function makeProvider(): NativeMetricsProvider & {
+    emit: (event: NativeNetworkEvent) => void;
+    startNetworkCapture: jest.Mock;
+    stopNetworkCapture: jest.Mock;
+  } {
+    let handler: ((event: NativeNetworkEvent) => void) | null = null;
+    return {
+      isAvailable: () => false,
+      start: jest.fn(),
+      stop: jest.fn(),
+      getLatest: () => ({ uiFps: 0, usedMemoryMb: 0, cpuPercent: 0 }),
+      getProcessStartTime: () => Promise.resolve(undefined),
+      watchNextFrame: () => Promise.resolve(null),
+      supportsNetworkCapture: () => true,
+      startNetworkCapture: jest.fn((onEntry) => {
+        handler = onEntry;
+      }),
+      stopNetworkCapture: jest.fn(),
+      emit: (event) => handler?.(event),
+    };
+  }
+
+  afterEach(() => {
+    AppInspector.stop();
+    AppInspector.setNativeMetricsProvider(null);
+    AppInspector.clear();
+  });
+
+  it('prefers the native interceptor and feeds entries into the store', () => {
+    const provider = makeProvider();
+    AppInspector.setNativeMetricsProvider(provider);
+    AppInspector.configure();
+    AppInspector.start();
+    expect(provider.startNetworkCapture).toHaveBeenCalledTimes(1);
+
+    provider.emit({
+      method: 'GET',
+      url: 'https://api.example.com/todos',
+      status: 200,
+      startedAt: Date.now(),
+      durationMs: 120,
+    });
+    const [entry] = AppInspector.getState().network;
+    expect(entry?.method).toBe('GET');
+    expect(entry?.url).toBe('https://api.example.com/todos');
+    expect(entry?.status).toBe(200);
+    expect(entry?.durationMs).toBe(120);
+
+    AppInspector.stop();
+    expect(provider.stopNetworkCapture).toHaveBeenCalled();
+  });
+
+  it('maps status 0 (transport failure) to undefined', () => {
+    const provider = makeProvider();
+    AppInspector.setNativeMetricsProvider(provider);
+    AppInspector.configure();
+    AppInspector.start();
+    provider.emit({
+      method: 'POST',
+      url: 'https://api.example.com/orders',
+      status: 0,
+      startedAt: Date.now(),
+      durationMs: 30,
+    });
+    expect(AppInspector.getState().network[0]?.status).toBeUndefined();
+  });
+
+  it('does not use native capture when the network module is off', () => {
+    const provider = makeProvider();
+    AppInspector.setNativeMetricsProvider(provider);
+    AppInspector.configure({ modules: { network: false } });
+    AppInspector.start();
+    expect(provider.startNetworkCapture).not.toHaveBeenCalled();
   });
 });
 

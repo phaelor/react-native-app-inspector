@@ -22,11 +22,14 @@ export function useTodos(): UseTodos {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    todoApi.fetchTodos().then(list => {
-      setTodos(list);
-      setLoading(false);
-      AppInspector.markInteractive();
-    });
+    todoApi
+      .fetchTodos()
+      .then(list => {
+        setTodos(list);
+        AppInspector.markInteractive();
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const add = useCallback(async (title: string) => {
@@ -36,9 +39,13 @@ export function useTodos(): UseTodos {
     }
     AppInspector.trackAction('todo_add', {title: trimmed});
     setSaving(true);
-    const created = await todoApi.createTodo(trimmed);
-    setTodos(prev => [created, ...prev]);
-    setSaving(false);
+    try {
+      const created = await todoApi.createTodo(trimmed);
+      setTodos(prev => [created, ...prev]);
+    } catch {
+    } finally {
+      setSaving(false);
+    }
   }, []);
 
   const toggle = useCallback((todo: Todo) => {

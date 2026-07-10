@@ -24,11 +24,6 @@ type Screen = 'todos' | 'stats';
 
 const SCREEN_LABELS: Record<Screen, string> = {todos: 'Todos', stats: 'Stats'};
 
-// A genuine network request — captured automatically by the inspector.
-function fetchTip(): void {
-  fetch('https://jsonplaceholder.typicode.com/todos/1').catch(() => {});
-}
-
 function HeaderTab({
   label,
   active,
@@ -56,7 +51,6 @@ export function DemoApp(): React.JSX.Element {
   useEffect(() => {
     AppInspector.trackNavigation('Todos');
     AppInspector.mark('app-start');
-    fetchTip();
   }, []);
 
   const go = (next: Screen): void => {

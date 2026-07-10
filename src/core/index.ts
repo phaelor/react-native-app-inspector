@@ -4,6 +4,7 @@ import type {
   DeviceInfoSnapshot,
   InspectorSnapshot,
   NativeMetrics,
+  NativeNetworkEvent,
   NetworkLogEntry,
   PerformanceSample,
   TimelineCorrelation,
@@ -65,6 +66,11 @@ export interface NativeMetricsProvider {
   getProcessStartTime(): Promise<number | undefined>;
   /** Next presented frame's timestamp (ms, OS monotonic clock), or `null`. */
   watchNextFrame(): Promise<number | null>;
+  /** Whether the native layer can capture network traffic. */
+  supportsNetworkCapture?(): boolean;
+  /** Begin native capture; `onEntry` fires once per completed request. */
+  startNetworkCapture?(onEntry: (event: NativeNetworkEvent) => void): void;
+  stopNetworkCapture?(): void;
 }
 
 /** Config with all module flags resolved; adapters are held separately. */
@@ -233,7 +239,20 @@ class AppInspectorController {
     }
 
     if (this.config.modules.network) {
-      this.networkLogger.start();
+      if (this.nativeMetrics?.supportsNetworkCapture?.()) {
+        this.nativeMetrics.startNetworkCapture?.((event) =>
+          this.recordNetwork({
+            id: uid('net'),
+            method: event.method,
+            url: event.url,
+            status: event.status > 0 ? event.status : undefined,
+            startedAt: event.startedAt,
+            durationMs: event.durationMs,
+          }),
+        );
+      } else {
+        this.networkLogger.start();
+      }
     }
 
     if (this.config.modules.errors) {
@@ -307,6 +326,7 @@ class AppInspectorController {
     this.perf?.stop();
     this.perf = null;
     this.nativeMetrics?.stop();
+    this.nativeMetrics?.stopNetworkCapture?.();
     this.networkLogger.stop();
     this.errorTracker.stop();
     void this.persist();

@@ -117,6 +117,17 @@ export interface PerformanceSample {
   cpuPercent?: number;
 }
 
+/** A completed request reported by the native network interceptor. */
+export interface NativeNetworkEvent {
+  method: string;
+  url: string;
+  /** HTTP status; `0` when the request failed before any response. */
+  status: number;
+  /** Epoch milliseconds when the request started. */
+  startedAt: number;
+  durationMs: number;
+}
+
 /** Live metrics read from the native module. */
 export interface NativeMetrics {
   /** UI / native thread frame rate. */

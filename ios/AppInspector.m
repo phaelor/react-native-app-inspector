@@ -1,4 +1,5 @@
 #import "AppInspector.h"
+#import "AppInspectorURLProtocol.h"
 
 #import <QuartzCore/CADisplayLink.h>
 #import <mach/mach.h>
@@ -22,7 +23,7 @@ RCT_EXPORT_MODULE(AppInspector)
 }
 
 - (NSArray<NSString *> *)supportedEvents {
-  return @[ @"AppInspectorMetrics" ];
+  return @[ @"AppInspectorMetrics", @"AppInspectorNetwork" ];
 }
 
 - (void)startObserving {
@@ -168,6 +169,24 @@ RCT_EXPORT_METHOD(watchNextFrame : (RCTPromiseResolveBlock)resolve
   for (RCTPromiseResolveBlock resolve in pending) {
     resolve(@(presentedMs));
   }
+}
+
+RCT_EXPORT_METHOD(startNetworkCapture) {
+  [NSURLProtocol registerClass:[AppInspectorURLProtocol class]];
+  [AppInspectorURLProtocol setEnabled:YES];
+  __weak AppInspector *weakSelf = self;
+  [AppInspectorURLProtocol setEventHandler:^(NSDictionary *entry) {
+    AppInspector *strongSelf = weakSelf;
+    if (strongSelf && strongSelf->_hasListeners) {
+      [strongSelf sendEventWithName:@"AppInspectorNetwork" body:entry];
+    }
+  }];
+}
+
+RCT_EXPORT_METHOD(stopNetworkCapture) {
+  [AppInspectorURLProtocol setEnabled:NO];
+  [AppInspectorURLProtocol setEventHandler:nil];
+  [NSURLProtocol unregisterClass:[AppInspectorURLProtocol class]];
 }
 
 RCT_EXPORT_METHOD(getProcessStartTime : (RCTPromiseResolveBlock)resolve
