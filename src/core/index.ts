@@ -1,5 +1,6 @@
 import type {
   AppInspectorConfig,
+  ClipboardAdapter,
   DeviceInfoSnapshot,
   InspectorSnapshot,
   NativeMetrics,
@@ -66,8 +67,10 @@ export interface NativeMetricsProvider {
   watchNextFrame(): Promise<number | null>;
 }
 
-/** Config with all module flags resolved; `storage` is held separately. */
-type ResolvedConfig = Required<Omit<AppInspectorConfig, 'storage'>>;
+/** Config with all module flags resolved; adapters are held separately. */
+type ResolvedConfig = Required<
+  Omit<AppInspectorConfig, 'storage' | 'clipboard'>
+>;
 
 const DEFAULT_CONFIG: ResolvedConfig = {
   enabled: true,
@@ -92,6 +95,8 @@ const DEFAULT_CONFIG: ResolvedConfig = {
 class AppInspectorController {
   private config: ResolvedConfig = DEFAULT_CONFIG;
   private persistence: SessionPersistence | null = null;
+  private clipboard: ClipboardAdapter | null = null;
+  private clipboardFallback: ClipboardAdapter | null = null;
   private previousSession: PersistedSession | null = null;
   private running = false;
   private readonly store = new InspectorStore(DEFAULT_CONFIG.maxEntries);
@@ -173,7 +178,7 @@ class AppInspectorController {
    * `start()`.
    */
   configure(config: AppInspectorConfig = {}): void {
-    const { storage, ...rest } = config;
+    const { storage, clipboard, ...rest } = config;
     this.config = {
       ...DEFAULT_CONFIG,
       ...rest,
@@ -181,7 +186,32 @@ class AppInspectorController {
     };
     this.store.setMaxEntries(this.config.maxEntries);
     this.persistence = storage ? new SessionPersistence(storage) : null;
+    this.clipboard = clipboard ?? null;
     this.previousSession = null;
+  }
+
+  /** Fallback clipboard wired from the package entry point (RN core). */
+  setClipboardProvider(provider: ClipboardAdapter | null): void {
+    this.clipboardFallback = provider;
+  }
+
+  /** Whether a clipboard is available (configured adapter or RN fallback). */
+  canCopy(): boolean {
+    return this.clipboard !== null || this.clipboardFallback !== null;
+  }
+
+  /** Copy `text` via the configured adapter or the RN fallback. */
+  copyToClipboard(text: string): boolean {
+    const target = this.clipboard ?? this.clipboardFallback;
+    if (!target) {
+      return false;
+    }
+    try {
+      target.setString(text);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Start the enabled capture modules. No-op while disabled or running. */

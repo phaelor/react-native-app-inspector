@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import {
+  FlatList,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import type { InspectorState } from '../../core';
 import type { NetworkLogEntry } from '../../core/types';
 import { Row } from './Row';
+import { CopyButton } from './CopyButton';
 import { usePanelStyles } from './styles';
 import type { Theme } from '../theme';
 
@@ -71,6 +78,7 @@ function NetworkDetail({
           {asCurl(entry)}
         </Text>
       </View>
+      <CopyButton label="Copy cURL" getText={() => asCurl(entry)} />
 
       {req ? (
         <>
@@ -133,7 +141,10 @@ function NetworkRow({
   );
 }
 
-/** Captured HTTP requests: method, status, timing, and request/response bodies. */
+/**
+ * Captured HTTP requests: virtualized list with method, status and timing;
+ * tap for request/response bodies. Owns its scrolling.
+ */
 export function NetworkTab({
   state,
   search = '',
@@ -144,47 +155,48 @@ export function NetworkTab({
   const { styles } = usePanelStyles();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (state.network.length === 0) {
-    return (
-      <Text style={styles.empty}>
-        No requests captured yet. `fetch` and XMLHttpRequest are logged
-        automatically.
-      </Text>
-    );
-  }
-
   const selected = selectedId
     ? state.network.find((e) => e.id === selectedId)
     : undefined;
   if (selected) {
     return (
-      <NetworkDetail entry={selected} onBack={() => setSelectedId(null)} />
+      <ScrollView
+        style={[styles.body, styles.bodyFill]}
+        contentContainerStyle={styles.bodyInner}
+      >
+        <NetworkDetail entry={selected} onBack={() => setSelectedId(null)} />
+      </ScrollView>
     );
   }
 
   const query = search.trim().toLowerCase();
-  const recent = state.network
+  const rows = state.network
     .filter(
       (e) =>
         query === '' ||
         e.url.toLowerCase().includes(query) ||
         e.method.toLowerCase().includes(query),
     )
-    .slice(-60)
     .reverse();
-  if (recent.length === 0) {
-    return <Text style={styles.empty}>No requests match this search.</Text>;
-  }
 
   return (
-    <View>
-      {recent.map((entry) => (
-        <NetworkRow
-          key={entry.id}
-          entry={entry}
-          onPress={() => setSelectedId(entry.id)}
-        />
-      ))}
-    </View>
+    <FlatList
+      style={[styles.body, styles.bodyFill]}
+      contentContainerStyle={styles.bodyInner}
+      data={rows}
+      keyExtractor={(entry) => entry.id}
+      renderItem={({ item }) => (
+        <NetworkRow entry={item} onPress={() => setSelectedId(item.id)} />
+      )}
+      initialNumToRender={20}
+      keyboardShouldPersistTaps="handled"
+      ListEmptyComponent={
+        <Text style={styles.empty}>
+          {state.network.length === 0
+            ? 'No requests captured yet. `fetch` and XMLHttpRequest are logged automatically.'
+            : 'No requests match this search.'}
+        </Text>
+      }
+    />
   );
 }

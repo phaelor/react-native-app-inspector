@@ -16,6 +16,7 @@ import { shareLogs } from '../export/share';
 import { useInspectorState } from './useInspectorState';
 import { TimelineTab } from './panel/TimelineTab';
 import { NetworkTab } from './panel/NetworkTab';
+import { InteractionsTab } from './panel/InteractionsTab';
 import { PerformanceTab } from './panel/PerformanceTab';
 import { ScreensTab } from './panel/ScreensTab';
 import { StartupTab } from './panel/StartupTab';
@@ -25,6 +26,7 @@ import { usePanelStyles } from './panel/styles';
 type Tab =
   | 'timeline'
   | 'network'
+  | 'interactions'
   | 'performance'
   | 'screens'
   | 'startup'
@@ -33,11 +35,15 @@ type Tab =
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'timeline', label: 'Timeline' },
   { key: 'network', label: 'Network' },
+  { key: 'interactions', label: 'Taps' },
   { key: 'performance', label: 'Perf' },
   { key: 'screens', label: 'Screens' },
   { key: 'startup', label: 'Startup' },
   { key: 'settings', label: 'Settings' },
 ];
+
+/** Tabs that render their own virtualized list (must not nest in ScrollView). */
+const LIST_TABS: ReadonlyArray<Tab> = ['timeline', 'network', 'interactions'];
 
 export interface InspectorModalProps {
   /** Whether the modal is shown. */
@@ -180,7 +186,7 @@ export function InspectorModal({
     setPaused(false);
   };
 
-  const searchable = tab === 'timeline' || tab === 'network';
+  const searchable = LIST_TABS.includes(tab);
   const errorCount = state.timeline.filter(
     (e) => e.severity === 'error',
   ).length;
@@ -247,7 +253,11 @@ export function InspectorModal({
             <TextInput
               style={styles.search}
               placeholder={
-                tab === 'network' ? 'Search requests…' : 'Search events…'
+                tab === 'network'
+                  ? 'Search requests…'
+                  : tab === 'interactions'
+                    ? 'Search taps…'
+                    : 'Search events…'
               }
               placeholderTextColor={theme.faint}
               value={search}
@@ -258,26 +268,32 @@ export function InspectorModal({
           </View>
         ) : null}
 
-        <ScrollView
-          style={[styles.body, styles.bodyFill]}
-          contentContainerStyle={styles.bodyInner}
-          keyboardShouldPersistTaps="handled"
-        >
-          {tab === 'timeline' && <TimelineTab state={state} search={search} />}
-          {tab === 'network' && <NetworkTab state={state} search={search} />}
-          {tab === 'performance' && <PerformanceTab state={state} />}
-          {tab === 'screens' && <ScreensTab state={state} />}
-          {tab === 'startup' && <StartupTab state={state} />}
-          {tab === 'settings' && (
-            <SettingsView
-              paused={paused}
-              onTogglePause={() => setPaused((p) => !p)}
-              onClear={handleClear}
-              badgeVisible={badgeVisible}
-              onToggleBadge={onToggleBadge}
-            />
-          )}
-        </ScrollView>
+        {/* List tabs own their scrolling (FlatList must not nest in a ScrollView). */}
+        {tab === 'timeline' && <TimelineTab state={state} search={search} />}
+        {tab === 'network' && <NetworkTab state={state} search={search} />}
+        {tab === 'interactions' && (
+          <InteractionsTab state={state} search={search} />
+        )}
+        {!LIST_TABS.includes(tab) ? (
+          <ScrollView
+            style={[styles.body, styles.bodyFill]}
+            contentContainerStyle={styles.bodyInner}
+            keyboardShouldPersistTaps="handled"
+          >
+            {tab === 'performance' && <PerformanceTab state={state} />}
+            {tab === 'screens' && <ScreensTab state={state} />}
+            {tab === 'startup' && <StartupTab state={state} />}
+            {tab === 'settings' && (
+              <SettingsView
+                paused={paused}
+                onTogglePause={() => setPaused((p) => !p)}
+                onClear={handleClear}
+                badgeVisible={badgeVisible}
+                onToggleBadge={onToggleBadge}
+              />
+            )}
+          </ScrollView>
+        ) : null}
       </SafeAreaView>
     </Modal>
   );

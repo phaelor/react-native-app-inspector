@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import {
+  FlatList,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { AppInspector } from '../../core';
 import type { InspectorState } from '../../core';
 import type { TimelineEvent, TimelineSeverity } from '../../core/types';
 import { Row } from './Row';
+import { CopyButton } from './CopyButton';
 import { usePanelStyles } from './styles';
 
 const TYPE_TAG: Record<TimelineEvent['type'], string> = {
@@ -100,6 +107,10 @@ function TimelineDetail({
       ) : (
         <Text style={styles.empty}>No correlated causes for this event.</Text>
       )}
+      <CopyButton
+        label="Copy event"
+        getText={() => JSON.stringify(event, null, 2)}
+      />
     </View>
   );
 }
@@ -135,7 +146,10 @@ function TimelineEventRow({
   );
 }
 
-/** Unified timeline with severity filter, correlation banner and tap-to-detail. */
+/**
+ * Unified timeline: virtualized event list with severity filter, correlation
+ * banner and tap-to-detail. Owns its scrolling (list and detail alike).
+ */
 export function TimelineTab({
   state,
   search = '',
@@ -148,69 +162,78 @@ export function TimelineTab({
   const [filter, setFilter] = useState<'all' | TimelineSeverity>('all');
   const events = state.timeline;
 
-  if (events.length === 0) {
-    return (
-      <Text style={styles.empty}>
-        No events yet. Track actions / navigation, or trigger a slow render or
-        FPS drop.
-      </Text>
-    );
-  }
-
   const selected = selectedId
     ? events.find((event) => event.id === selectedId)
     : undefined;
   if (selected) {
     return (
-      <TimelineDetail event={selected} onBack={() => setSelectedId(null)} />
+      <ScrollView
+        style={[styles.body, styles.bodyFill]}
+        contentContainerStyle={styles.bodyInner}
+      >
+        <TimelineDetail event={selected} onBack={() => setSelectedId(null)} />
+      </ScrollView>
     );
   }
 
   const query = search.trim().toLowerCase();
-  const correlation = AppInspector.correlate();
-  const recent = events
+  const correlation = events.length > 0 ? AppInspector.correlate() : null;
+  const rows = events
     .filter((event) => filter === 'all' || event.severity === filter)
     .filter(
       (event) => query === '' || event.label.toLowerCase().includes(query),
     )
-    .slice(-40)
     .reverse();
 
   return (
-    <View>
-      {correlation?.summary ? (
-        <CauseBanner summary={correlation.summary} />
-      ) : null}
-      <View style={styles.filterRow}>
-        {SEVERITY_FILTERS.map((option) => (
-          <TouchableOpacity
-            key={option.key}
-            accessibilityRole="button"
-            onPress={() => setFilter(option.key)}
-            style={[styles.chip, filter === option.key && styles.chipActive]}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                filter === option.key && styles.chipTextActive,
-              ]}
-            >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {recent.length === 0 ? (
-        <Text style={styles.empty}>No events match this filter.</Text>
-      ) : (
-        recent.map((event) => (
-          <TimelineEventRow
-            key={event.id}
-            event={event}
-            onPress={() => setSelectedId(event.id)}
-          />
-        ))
+    <FlatList
+      style={[styles.body, styles.bodyFill]}
+      contentContainerStyle={styles.bodyInner}
+      data={rows}
+      keyExtractor={(event) => event.id}
+      renderItem={({ item }) => (
+        <TimelineEventRow event={item} onPress={() => setSelectedId(item.id)} />
       )}
-    </View>
+      initialNumToRender={20}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        events.length === 0 ? null : (
+          <>
+            {correlation?.summary ? (
+              <CauseBanner summary={correlation.summary} />
+            ) : null}
+            <View style={styles.filterRow}>
+              {SEVERITY_FILTERS.map((option) => (
+                <TouchableOpacity
+                  key={option.key}
+                  accessibilityRole="button"
+                  onPress={() => setFilter(option.key)}
+                  style={[
+                    styles.chip,
+                    filter === option.key && styles.chipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      filter === option.key && styles.chipTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )
+      }
+      ListEmptyComponent={
+        <Text style={styles.empty}>
+          {events.length === 0
+            ? 'No events yet. Track actions / navigation, or trigger a slow render or FPS drop.'
+            : 'No events match this filter.'}
+        </Text>
+      }
+    />
   );
 }

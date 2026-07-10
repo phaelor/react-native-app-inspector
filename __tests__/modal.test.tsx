@@ -69,6 +69,85 @@ describe('<InspectorModal />', () => {
     clear.mockRestore();
   });
 
+  it('shows live performance data on the Perf tab', () => {
+    const { getAllByText, getByText, queryByText } = render(
+      <InspectorModal visible initialTab="performance" />,
+    );
+    expect(queryByText('Waiting for samples…')).toBeTruthy();
+    act(() => {
+      AppInspector.getStore().pushPerformance({
+        timestamp: 1,
+        jsFps: 58,
+        uiFps: 0,
+        jankyFrames: 2,
+        longestFrameMs: 40,
+      });
+    });
+    expect(getAllByText('58').length).toBeGreaterThan(0);
+    expect(getByText('40 ms')).toBeTruthy();
+  });
+
+  it('shows timeline events with the possible-cause summary and detail', () => {
+    const { getByText, queryByText } = render(<InspectorModal visible />);
+    expect(queryByText(/No events yet/)).toBeTruthy();
+
+    act(() => {
+      const timeline = AppInspector.getTimeline();
+      timeline.trackNavigation('Checkout', 420);
+      timeline.trackRender('CheckoutScreen', 600, 'update');
+      timeline.trackFpsDrop(60, 25);
+    });
+
+    expect(getByText(/Possible cause/)).toBeTruthy();
+    fireEvent.press(getByText(/FPS drop 60 → 25/));
+    expect(getByText(/Back to timeline/)).toBeTruthy();
+    expect(getByText(/CheckoutScreen render \(600ms\)/)).toBeTruthy();
+
+    fireEvent.press(getByText(/Back to timeline/));
+    expect(queryByText(/Back to timeline/)).toBeNull();
+  });
+
+  it('copies a request as cURL via a configured clipboard adapter', () => {
+    const setString = jest.fn();
+    AppInspector.configure({ clipboard: { setString } });
+    const { getByText } = render(
+      <InspectorModal visible initialTab="network" />,
+    );
+    pushRequest();
+    fireEvent.press(getByText('https://api.example.com/orders'));
+    fireEvent.press(getByText('Copy cURL'));
+    expect(setString).toHaveBeenCalledWith(
+      expect.stringContaining("curl -X POST 'https://api.example.com/orders'"),
+    );
+    expect(getByText('Copied ✓')).toBeTruthy();
+  });
+
+  it('hides Copy buttons when no clipboard is available', () => {
+    const { getByText, queryByText } = render(
+      <InspectorModal visible initialTab="network" />,
+    );
+    pushRequest();
+    fireEvent.press(getByText('https://api.example.com/orders'));
+    expect(getByText('cURL')).toBeTruthy(); // detail is open
+    expect(queryByText('Copy cURL')).toBeNull();
+  });
+
+  it('shows measured interactions on the Taps tab', () => {
+    const { getByText } = render(
+      <InspectorModal visible initialTab="interactions" />,
+    );
+    expect(getByText(/No taps measured yet/)).toBeTruthy();
+
+    act(() => {
+      AppInspector.getTimeline().trackInteraction('Add to cart', 250, 'Todos');
+      AppInspector.getTimeline().trackInteraction('Toggle todo', 40);
+    });
+
+    expect(getByText('Add to cart')).toBeTruthy();
+    expect(getByText('250ms')).toBeTruthy();
+    expect(getByText('145ms / 250ms')).toBeTruthy(); // avg / worst
+  });
+
   it('toggles the floating badge via the settings switch', () => {
     const onToggleBadge = jest.fn();
     const { getByText, getByLabelText } = render(

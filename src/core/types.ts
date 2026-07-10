@@ -13,6 +13,15 @@ export interface PersistenceAdapter {
   removeItem(key: string): Promise<void>;
 }
 
+/**
+ * Minimal clipboard — structurally compatible with
+ * `@react-native-clipboard/clipboard` and React Native's core `Clipboard`, so
+ * the library stays dependency-free and the host plugs in whatever it has.
+ */
+export interface ClipboardAdapter {
+  setString(text: string): void;
+}
+
 /** Toggle individual capture modules on or off. */
 export interface ModuleFlags {
   network?: boolean;
@@ -40,6 +49,12 @@ export interface AppInspectorConfig {
    * error. Read it back via {@link AppInspector.getPreviousSession}.
    */
   storage?: PersistenceAdapter;
+  /**
+   * Optional clipboard (e.g. `@react-native-clipboard/clipboard`) enabling
+   * the Copy buttons in the inspector UI. Without it the UI falls back to
+   * React Native's core `Clipboard` when available.
+   */
+  clipboard?: ClipboardAdapter;
 }
 
 /** A single captured network request/response pair. */

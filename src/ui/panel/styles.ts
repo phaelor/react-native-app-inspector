@@ -1,26 +1,10 @@
 import { StyleSheet } from 'react-native';
-import { darkTheme, useTheme } from '../theme';
+import { useTheme } from '../theme';
 import type { Theme } from '../theme';
 
-/** Build the panel stylesheet for a given theme. */
+/** Build the inspector stylesheet for a given theme. */
 export function makePanelStyles(t: Theme) {
   return StyleSheet.create({
-    container: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
-    panel: {
-      margin: 10,
-      borderRadius: 16,
-      backgroundColor: t.bg,
-      maxHeight: 320,
-      overflow: 'hidden',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.divider,
-    },
-
     // Live summary strip — glanceable, always visible.
     status: {
       flexDirection: 'row',
@@ -47,34 +31,6 @@ export function makePanelStyles(t: Theme) {
       color: t.faint,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
-    },
-
-    // Tab bar
-    tabs: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.divider,
-    },
-    tabsSpacer: {
-      flex: 1,
-    },
-    tab: {
-      paddingVertical: 9,
-      paddingHorizontal: 10,
-    },
-    tabActive: {
-      borderBottomWidth: 2,
-      borderBottomColor: t.accent,
-    },
-    tabText: {
-      color: t.muted,
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    tabTextActive: {
-      color: t.text,
     },
 
     // Body
@@ -495,6 +451,19 @@ export function makePanelStyles(t: Theme) {
       width: 30,
       textAlign: 'right',
     },
+    copyBtn: {
+      alignSelf: 'flex-start',
+      backgroundColor: t.accentSoft,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      marginBottom: 8,
+    },
+    copyBtnText: {
+      color: t.accent,
+      fontSize: 12,
+      fontWeight: '700',
+    },
     codeBlock: {
       backgroundColor: t.surface,
       borderRadius: 8,
@@ -530,7 +499,3 @@ export function usePanelStyles(): { styles: PanelStyles; theme: Theme } {
   const theme = useTheme();
   return { styles: panelStylesFor(theme), theme };
 }
-
-/** Default (dark) instances kept for non-hook call sites. */
-export const colors = darkTheme;
-export const panelStyles = panelStylesFor(darkTheme);

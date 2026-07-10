@@ -9,12 +9,25 @@ import { getDeviceInfo } from './modules/deviceInfo';
 
 AppInspector.setNativeMetricsProvider(NativeMetricsModule);
 AppInspector.setDeviceInfoProvider(getDeviceInfo);
+AppInspector.setClipboardProvider({
+  // Lazy so RN's deprecation warning fires only if the fallback is used;
+  // hosts silence it by passing `clipboard` to configure().
+  setString: (text) => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const rn = require('react-native') as {
+      Clipboard?: { setString(value: string): void };
+    };
+    if (!rn.Clipboard) {
+      throw new Error('Clipboard unavailable');
+    }
+    rn.Clipboard.setString(text);
+  },
+});
 
 export { AppInspector } from './core';
 
 // Components + state hook
 export {
-  InspectorPanel,
   InspectorModal,
   InspectorFpsBadge,
   InspectorPressable,
@@ -24,7 +37,6 @@ export {
   ThemeProvider,
 } from './ui';
 export type {
-  InspectorPanelProps,
   InspectorModalProps,
   InspectorFpsBadgeProps,
   BadgeCorner,
@@ -56,6 +68,7 @@ export type {
   AppInspectorConfig,
   ModuleFlags,
   PersistenceAdapter,
+  ClipboardAdapter,
   InspectorSnapshot,
   NetworkLogEntry,
   ActionLogEntry,
