@@ -9,6 +9,11 @@ export interface NavigationStateLike {
 /** Minimal shape of a React Navigation container ref. */
 export interface NavigationRefLike {
   getCurrentRoute?: () => { name?: string } | undefined;
+  /** Matches `NavigationContainerRef.addListener`; returns an unsubscribe function. */
+  addListener?: (
+    type: 'state',
+    callback: (event: { data?: { state?: NavigationStateLike } }) => void,
+  ) => () => void;
 }
 
 /** Walk the nested navigation state to the focused (leaf) route name. */

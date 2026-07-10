@@ -62,13 +62,14 @@ function useReduceMotion(): boolean {
   const [reduce, setReduce] = useState(false);
   useEffect(() => {
     let alive = true;
-    const query = AccessibilityInfo.isReduceMotionEnabled?.();
+    // Optional-chain the module too: it's undefined in some jest environments.
+    const query = AccessibilityInfo?.isReduceMotionEnabled?.();
     if (query && typeof query.then === 'function') {
       void query.then((v) => {
         if (alive) setReduce(v);
       });
     }
-    const sub = AccessibilityInfo.addEventListener?.(
+    const sub = AccessibilityInfo?.addEventListener?.(
       'reduceMotionChanged',
       setReduce,
     );

@@ -13,5 +13,10 @@ import {it} from '@jest/globals';
 import renderer from 'react-test-renderer';
 
 it('renders correctly', () => {
-  renderer.create(<App />);
+  let tree: renderer.ReactTestRenderer;
+  renderer.act(() => {
+    tree = renderer.create(<App />);
+  });
+  // Unmount so InspectorRoot stops capture and no timers outlive the test.
+  renderer.act(() => tree.unmount());
 });

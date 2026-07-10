@@ -1,3 +1,5 @@
+export { InspectorRoot } from './InspectorRoot';
+export type { InspectorRootProps } from './InspectorRoot';
 export { InspectorModal } from './InspectorModal';
 export type { InspectorModalProps } from './InspectorModal';
 export { InspectorFpsBadge } from './InspectorFpsBadge';

@@ -28,6 +28,7 @@ export { AppInspector } from './core';
 
 // Components + state hook
 export {
+  InspectorRoot,
   InspectorModal,
   InspectorFpsBadge,
   InspectorPressable,
@@ -37,6 +38,7 @@ export {
   ThemeProvider,
 } from './ui';
 export type {
+  InspectorRootProps,
   InspectorModalProps,
   InspectorFpsBadgeProps,
   BadgeCorner,
