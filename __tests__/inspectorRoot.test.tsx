@@ -136,6 +136,88 @@ describe('<InspectorRoot />', () => {
     track.mockRestore();
   });
 
+  it('auto-captures a tap on a pressable child via the tap boundary', () => {
+    const begin = jest.spyOn(AppInspector.getInteractionTracker(), 'begin');
+    const { getByTestId } = render(
+      <InspectorRoot>
+        <Text>app</Text>
+      </InspectorRoot>,
+    );
+    const boundary = getByTestId('inspector-tap-boundary');
+    const pressableFiber = {
+      type: 'RCTView',
+      memoizedProps: {},
+      return: {
+        type: function AddButton() {
+          return null;
+        },
+        memoizedProps: { onPress: () => {}, testID: 'add-todo' },
+      },
+    };
+    fireEvent(boundary, 'touchStart', {
+      nativeEvent: { pageX: 10, pageY: 10, timestamp: 1000, touches: [1] },
+      _targetInst: pressableFiber,
+    });
+    fireEvent(boundary, 'touchEnd', {
+      nativeEvent: { pageX: 11, pageY: 10, timestamp: 1080, touches: [] },
+    });
+    expect(begin).toHaveBeenCalledWith('add-todo', {
+      nativeTimestampMs: 1080,
+      completeOnCommit: true,
+      auto: true,
+      timeoutMs: 2000,
+    });
+    begin.mockRestore();
+  });
+
+  it('ignores taps that hit nothing pressable', () => {
+    const begin = jest.spyOn(AppInspector.getInteractionTracker(), 'begin');
+    const { getByTestId } = render(
+      <InspectorRoot>
+        <Text>app</Text>
+      </InspectorRoot>,
+    );
+    const boundary = getByTestId('inspector-tap-boundary');
+    fireEvent(boundary, 'touchStart', {
+      nativeEvent: { pageX: 10, pageY: 10, timestamp: 1000, touches: [1] },
+      _targetInst: { type: 'RCTView', memoizedProps: {} },
+    });
+    fireEvent(boundary, 'touchEnd', {
+      nativeEvent: { pageX: 10, pageY: 10, timestamp: 1050, touches: [] },
+    });
+    expect(begin).not.toHaveBeenCalled();
+    begin.mockRestore();
+  });
+
+  it('drives tap completion from its own commits even with profileRoot={false}', () => {
+    const notify = jest.spyOn(
+      AppInspector.getInteractionTracker(),
+      'notifyCommit',
+    );
+    const { rerender } = render(
+      <InspectorRoot profileRoot={false}>
+        <Text>app</Text>
+      </InspectorRoot>,
+    );
+    notify.mockClear();
+    rerender(
+      <InspectorRoot profileRoot={false}>
+        <Text>app updated</Text>
+      </InspectorRoot>,
+    );
+    expect(notify).toHaveBeenCalled();
+    notify.mockRestore();
+  });
+
+  it('omits the tap boundary when autoCaptureTaps is false', () => {
+    const { queryByTestId } = render(
+      <InspectorRoot autoCaptureTaps={false}>
+        <Text>app</Text>
+      </InspectorRoot>,
+    );
+    expect(queryByTestId('inspector-tap-boundary')).toBeNull();
+  });
+
   it('records root render stats via the built-in profiler', () => {
     render(
       <InspectorRoot>

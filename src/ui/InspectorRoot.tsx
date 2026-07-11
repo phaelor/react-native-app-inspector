@@ -9,6 +9,7 @@ import {
 import { InspectorFpsBadge, type BadgeCorner } from './InspectorFpsBadge';
 import { InspectorModal, type InspectorModalProps } from './InspectorModal';
 import { InspectorProfiler } from './InspectorProfiler';
+import { InspectorTapBoundary } from './InspectorTapBoundary';
 
 export interface InspectorRootProps {
   children: ReactNode;
@@ -22,6 +23,11 @@ export interface InspectorRootProps {
   initialTab?: InspectorModalProps['initialTab'];
   /** Wrap the app in a root render profiler (id `App`). Defaults to `true`. */
   profileRoot?: boolean;
+  /**
+   * Auto-capture tap-to-response latency for every pressable child. Adds one
+   * flex:1 View around the children. Defaults to `true`.
+   */
+  autoCaptureTaps?: boolean;
   storage?: AppInspectorConfig['storage'];
   clipboard?: AppInspectorConfig['clipboard'];
   modules?: AppInspectorConfig['modules'];
@@ -47,6 +53,7 @@ export function InspectorRoot({
   badgeCorner,
   initialTab,
   profileRoot = true,
+  autoCaptureTaps = true,
   storage,
   clipboard,
   modules,
@@ -91,12 +98,18 @@ export function InspectorRoot({
     return <>{children}</>;
   }
 
+  const content = autoCaptureTaps ? (
+    <InspectorTapBoundary>{children}</InspectorTapBoundary>
+  ) : (
+    children
+  );
+
   return (
     <>
       {profileRoot ? (
-        <InspectorProfiler id="App">{children}</InspectorProfiler>
+        <InspectorProfiler id="App">{content}</InspectorProfiler>
       ) : (
-        children
+        content
       )}
       <InspectorFpsBadge
         visible={badgeVisible}

@@ -2,16 +2,14 @@ import React, {useState} from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import {
-  InspectorPressable,
-  InspectorProfiler,
-} from 'react-native-app-inspector';
+import {InspectorProfiler} from 'react-native-app-inspector';
 import type {Todo} from './todoApi';
 import type {UseTodos} from './useTodos';
 
@@ -26,8 +24,7 @@ function TodoRow({
 }): React.JSX.Element {
   return (
     <View style={styles.row}>
-      <InspectorPressable
-        label="Toggle todo"
+      <Pressable
         style={({pressed}) => [styles.rowMain, pressed && styles.pressed]}
         onPress={onToggle}>
         <View style={[styles.checkbox, todo.done && styles.checkboxDone]}>
@@ -36,8 +33,8 @@ function TodoRow({
         <Text style={[styles.title, todo.done && styles.titleDone]}>
           {todo.title}
         </Text>
-      </InspectorPressable>
-      <TouchableOpacity onPress={onDelete} hitSlop={8}>
+      </Pressable>
+      <TouchableOpacity testID="delete-todo" onPress={onDelete} hitSlop={8}>
         <Text style={styles.delete}>✕</Text>
       </TouchableOpacity>
     </View>
@@ -75,8 +72,7 @@ export function TodoListScreen({
           onSubmitEditing={onAdd}
           returnKeyType="done"
         />
-        <InspectorPressable
-          label="Add todo"
+        <Pressable
           style={({pressed}) => [
             styles.addButton,
             saving && styles.addButtonBusy,
@@ -85,7 +81,7 @@ export function TodoListScreen({
           onPress={onAdd}
           disabled={saving}>
           <Text style={styles.addButtonText}>{saving ? '…' : 'Add'}</Text>
-        </InspectorPressable>
+        </Pressable>
       </View>
 
       <InspectorProfiler id="TodoList">

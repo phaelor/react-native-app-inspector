@@ -202,6 +202,17 @@ describe('InteractionTracker — timeout & clear', () => {
     expect(completed).toEqual([]);
   });
 
+  it('a per-begin timeoutMs overrides the tracker default', () => {
+    const { tracker, completed, flushFrames } = makeTracker({
+      timeoutMs: 5000,
+    });
+    tracker.begin('Auto tap', { completeOnCommit: true, timeoutMs: 100 });
+    jest.advanceTimersByTime(101);
+    tracker.notifyCommit();
+    flushFrames();
+    expect(completed).toEqual([]);
+  });
+
   it('clear() drops all in-flight measurements', () => {
     const { tracker, completed, flushFrames } = makeTracker({});
     const done = tracker.begin('A');
@@ -238,6 +249,78 @@ describe('InteractionTracker — timeout & clear', () => {
     frames.splice(0).forEach((cb) => cb());
 
     expect(completed[0]?.context).toBe('Checkout');
+  });
+});
+
+describe('InteractionTracker — auto/explicit dedup', () => {
+  it('skips an auto begin when an explicit one already tracks the same touch', () => {
+    const { tracker, completed, set, flushFrames } = makeTracker({});
+    set(0);
+    tracker.begin('Add to cart', {
+      nativeTimestampMs: 5000,
+      completeOnCommit: true,
+    });
+    tracker.begin('Tap', {
+      nativeTimestampMs: 5000,
+      completeOnCommit: true,
+      auto: true,
+    });
+    set(80);
+    tracker.notifyCommit();
+    flushFrames();
+
+    expect(completed.map((c) => c.label)).toEqual(['Add to cart']);
+  });
+
+  it('an explicit begin replaces a pending auto capture of the same touch', () => {
+    const { tracker, completed, set, flushFrames } = makeTracker({});
+    set(0);
+    tracker.begin('Tap', {
+      nativeTimestampMs: 5010,
+      completeOnCommit: true,
+      auto: true,
+    });
+    tracker.begin('Add to cart', {
+      nativeTimestampMs: 5000,
+      completeOnCommit: true,
+    });
+    set(80);
+    tracker.notifyCommit();
+    flushFrames();
+
+    expect(completed.map((c) => c.label)).toEqual(['Add to cart']);
+  });
+
+  it('distinct taps outside the dedup window are both tracked', () => {
+    const { tracker, completed, set, flushFrames } = makeTracker({});
+    set(0);
+    tracker.begin('First', {
+      nativeTimestampMs: 5000,
+      completeOnCommit: true,
+      auto: true,
+    });
+    tracker.begin('Second', {
+      nativeTimestampMs: 5200,
+      completeOnCommit: true,
+      auto: true,
+    });
+    set(80);
+    tracker.notifyCommit();
+    flushFrames();
+
+    expect(completed.map((c) => c.label)).toEqual(['First', 'Second']);
+  });
+
+  it('two explicit begins with the same timestamp both survive', () => {
+    const { tracker, completed, set, flushFrames } = makeTracker({});
+    set(0);
+    tracker.begin('A', { nativeTimestampMs: 5000, completeOnCommit: true });
+    tracker.begin('B', { nativeTimestampMs: 5000, completeOnCommit: true });
+    set(40);
+    tracker.notifyCommit();
+    flushFrames();
+
+    expect(completed.map((c) => c.label)).toEqual(['A', 'B']);
   });
 });
 

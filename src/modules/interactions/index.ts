@@ -29,13 +29,24 @@ export interface BeginInteractionOptions {
   /** Touch time from `e.nativeEvent.timestamp` (ms, OS monotonic clock). */
   nativeTimestampMs?: number;
   completeOnCommit?: boolean;
+  /**
+   * Marks an auto-captured tap. When an auto and an explicit begin carry
+   * near-identical touch timestamps they are the same physical tap: the auto
+   * one is dropped and the explicit label wins.
+   */
+  auto?: boolean;
+  /** Per-interaction override of the tracker's discard timeout. */
+  timeoutMs?: number;
 }
+
+const DEDUP_WINDOW_MS = 32;
 
 interface PendingInteraction {
   label: string;
   jsStartMs: number;
   nativeStartMs?: number;
   completeOnCommit: boolean;
+  auto: boolean;
   context?: unknown;
   timeout: ReturnType<typeof setTimeout>;
 }
@@ -74,13 +85,33 @@ export class InteractionTracker {
   }
 
   begin(label: string, options: BeginInteractionOptions = {}): () => void {
+    const startMs = options.nativeTimestampMs;
+    if (startMs !== undefined) {
+      const dup = this.pending.find(
+        (p) =>
+          p.nativeStartMs !== undefined &&
+          Math.abs(p.nativeStartMs - startMs) <= DEDUP_WINDOW_MS,
+      );
+      if (dup) {
+        if (options.auto) {
+          return () => {};
+        }
+        if (dup.auto) {
+          this.take(dup);
+        }
+      }
+    }
     const entry: PendingInteraction = {
       label,
       jsStartMs: this.now(),
-      nativeStartMs: options.nativeTimestampMs,
+      nativeStartMs: startMs,
       completeOnCommit: options.completeOnCommit ?? false,
+      auto: options.auto ?? false,
       context: this.captureContext?.(),
-      timeout: setTimeout(() => this.take(entry), this.timeoutMs),
+      timeout: setTimeout(
+        () => this.take(entry),
+        options.timeoutMs ?? this.timeoutMs,
+      ),
     };
     this.pending.push(entry);
     return () => {

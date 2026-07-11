@@ -374,7 +374,7 @@ class AppInspectorController {
     return this.renderTracker;
   }
 
-  /** The interaction tracker — used by {@link InspectorPressable}. */
+  /** The interaction tracker — used by the auto tap capture. */
   getInteractionTracker(): InteractionTracker {
     return this.interactionTracker;
   }

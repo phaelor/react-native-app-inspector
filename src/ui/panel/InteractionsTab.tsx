@@ -49,8 +49,7 @@ function InteractionRow({ event }: { event: TimelineEvent }): ReactElement {
 
 /**
  * Tap-to-response latency: RAIL-scored summary plus the recent measured
- * interactions (from `InspectorPressable` / `beginInteraction`). Owns its
- * scrolling.
+ * interactions (auto-captured taps / `beginInteraction`). Owns its scrolling.
  */
 export function InteractionsTab({
   state,
@@ -95,7 +94,7 @@ export function InteractionsTab({
       ListEmptyComponent={
         <Text style={styles.empty}>
           {all.length === 0
-            ? 'No taps measured yet. Wrap buttons in <InspectorPressable>, or call AppInspector.beginInteraction(label).'
+            ? 'No taps measured yet. Tap any button in the app, or call AppInspector.beginInteraction(label).'
             : 'No taps match this search.'}
         </Text>
       }
