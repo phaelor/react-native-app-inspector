@@ -22,6 +22,11 @@ import {
   SessionPersistence,
   type PersistedSession,
 } from '../modules/persistence';
+import {
+  asyncStorageAdapter,
+  isAsyncStorageLike,
+  type StorageInspectorAdapter,
+} from '../modules/storage';
 import { ScreenMonitor } from '../modules/screens';
 import { InteractionTracker } from '../modules/interactions';
 import { uid } from './uid';
@@ -75,7 +80,7 @@ export interface NativeMetricsProvider {
 
 /** Config with all module flags resolved; adapters are held separately. */
 type ResolvedConfig = Required<
-  Omit<AppInspectorConfig, 'storage' | 'clipboard'>
+  Omit<AppInspectorConfig, 'storage' | 'clipboard' | 'storages'>
 >;
 
 const DEFAULT_CONFIG: ResolvedConfig = {
@@ -101,6 +106,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
 class AppInspectorController {
   private config: ResolvedConfig = DEFAULT_CONFIG;
   private persistence: SessionPersistence | null = null;
+  private storages: StorageInspectorAdapter[] = [];
   private clipboard: ClipboardAdapter | null = null;
   private clipboardFallback: ClipboardAdapter | null = null;
   private previousSession: PersistedSession | null = null;
@@ -184,7 +190,7 @@ class AppInspectorController {
    * `start()`.
    */
   configure(config: AppInspectorConfig = {}): void {
-    const { storage, clipboard, ...rest } = config;
+    const { storage, clipboard, storages, ...rest } = config;
     this.config = {
       ...DEFAULT_CONFIG,
       ...rest,
@@ -192,8 +198,15 @@ class AppInspectorController {
     };
     this.store.setMaxEntries(this.config.maxEntries);
     this.persistence = storage ? new SessionPersistence(storage) : null;
+    this.storages =
+      storages ??
+      (isAsyncStorageLike(storage) ? [asyncStorageAdapter(storage)] : []);
     this.clipboard = clipboard ?? null;
     this.previousSession = null;
+  }
+
+  getStorages(): StorageInspectorAdapter[] {
+    return this.storages;
   }
 
   /** Fallback clipboard wired from the package entry point (RN core). */

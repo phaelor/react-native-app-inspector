@@ -19,6 +19,7 @@ import { NetworkTab } from './panel/NetworkTab';
 import { InteractionsTab } from './panel/InteractionsTab';
 import { PerformanceTab } from './panel/PerformanceTab';
 import { ScreensTab } from './panel/ScreensTab';
+import { StorageTab } from './panel/StorageTab';
 import { StartupTab } from './panel/StartupTab';
 import { StatusStrip } from './panel/StatusStrip';
 import { usePanelStyles } from './panel/styles';
@@ -29,6 +30,7 @@ type Tab =
   | 'interactions'
   | 'performance'
   | 'screens'
+  | 'storage'
   | 'startup'
   | 'settings';
 
@@ -38,12 +40,18 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'interactions', label: 'Taps' },
   { key: 'performance', label: 'Perf' },
   { key: 'screens', label: 'Screens' },
+  { key: 'storage', label: 'Storage' },
   { key: 'startup', label: 'Startup' },
   { key: 'settings', label: 'Settings' },
 ];
 
 /** Tabs that render their own virtualized list (must not nest in ScrollView). */
-const LIST_TABS: ReadonlyArray<Tab> = ['timeline', 'network', 'interactions'];
+const LIST_TABS: ReadonlyArray<Tab> = [
+  'timeline',
+  'network',
+  'interactions',
+  'storage',
+];
 
 export interface InspectorModalProps {
   /** Whether the modal is shown. */
@@ -258,7 +266,9 @@ export function InspectorModal({
                   ? 'Search requests…'
                   : tab === 'interactions'
                     ? 'Search taps…'
-                    : 'Search events…'
+                    : tab === 'storage'
+                      ? 'Search keys…'
+                      : 'Search events…'
               }
               placeholderTextColor={theme.faint}
               value={search}
@@ -275,6 +285,7 @@ export function InspectorModal({
         {tab === 'interactions' && (
           <InteractionsTab state={state} search={search} />
         )}
+        {tab === 'storage' && <StorageTab search={search} />}
         {!LIST_TABS.includes(tab) ? (
           <ScrollView
             style={[styles.body, styles.bodyFill]}

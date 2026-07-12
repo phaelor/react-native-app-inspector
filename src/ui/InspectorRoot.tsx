@@ -29,6 +29,8 @@ export interface InspectorRootProps {
    */
   autoCaptureTaps?: boolean;
   storage?: AppInspectorConfig['storage'];
+  /** Stores to browse in the Storage tab (see `asyncStorageAdapter`). */
+  storages?: AppInspectorConfig['storages'];
   clipboard?: AppInspectorConfig['clipboard'];
   modules?: AppInspectorConfig['modules'];
   maxEntries?: number;
@@ -55,6 +57,7 @@ export function InspectorRoot({
   profileRoot = true,
   autoCaptureTaps = true,
   storage,
+  storages,
   clipboard,
   modules,
   maxEntries,
@@ -64,7 +67,7 @@ export function InspectorRoot({
 
   // Read at start() time so inline object props don't restart capture.
   const configRef = useRef<AppInspectorConfig>({});
-  configRef.current = { storage, clipboard, modules, maxEntries };
+  configRef.current = { storage, storages, clipboard, modules, maxEntries };
 
   // Layout effect: runs before any child's passive effect, so requests fired
   // from children's mount effects are already captured.
@@ -72,9 +75,11 @@ export function InspectorRoot({
     if (!enabled) {
       return undefined;
     }
-    const { storage, clipboard, modules, maxEntries } = configRef.current;
+    const { storage, storages, clipboard, modules, maxEntries } =
+      configRef.current;
     const config: AppInspectorConfig = { enabled: true };
     if (storage) config.storage = storage;
+    if (storages) config.storages = storages;
     if (clipboard) config.clipboard = clipboard;
     if (modules) config.modules = modules;
     if (maxEntries !== undefined) config.maxEntries = maxEntries;

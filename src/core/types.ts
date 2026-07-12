@@ -34,6 +34,16 @@ export interface ModuleFlags {
   slowScreens?: boolean;
 }
 
+export interface StorageInspectorAdapter {
+  /** Name shown in the tab's switcher, e.g. "AsyncStorage", "MMKV (user)". */
+  name: string;
+  getAllKeys(): Promise<string[]>;
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  remove(key: string): Promise<void>;
+  clear?(): Promise<void>;
+}
+
 /** Options passed to {@link AppInspector.configure}. */
 export interface AppInspectorConfig {
   /** Master switch. When `false` the inspector is fully inert. */
@@ -55,6 +65,12 @@ export interface AppInspectorConfig {
    * React Native's core `Clipboard` when available.
    */
   clipboard?: ClipboardAdapter;
+  /**
+   * Stores to browse in the Storage tab (see `asyncStorageAdapter` /
+   * `mmkvAdapter`). When omitted and `storage` exposes `getAllKeys` (as
+   * AsyncStorage does), a tab for it is derived automatically.
+   */
+  storages?: StorageInspectorAdapter[];
 }
 
 /** A single captured network request/response pair. */

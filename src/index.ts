@@ -59,6 +59,9 @@ export type {
   NavigationRefLike,
 } from './modules/navigation';
 
+export { asyncStorageAdapter, mmkvAdapter } from './modules/storage';
+export type { AsyncStorageLike, MmkvLike } from './modules/storage';
+
 // Export / sharing
 export { exportLogs } from './export';
 export { shareLogs } from './export/share';
@@ -71,6 +74,7 @@ export type {
   ModuleFlags,
   PersistenceAdapter,
   ClipboardAdapter,
+  StorageInspectorAdapter,
   InspectorSnapshot,
   NetworkLogEntry,
   ActionLogEntry,

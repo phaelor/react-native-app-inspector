@@ -10,12 +10,19 @@
  */
 
 import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {InspectorRoot} from 'react-native-app-inspector';
 import {DemoApp} from './src/DemoApp';
+import {inspectorStorages, seedDemoStorage} from './src/storages';
+
+seedDemoStorage();
 
 function App(): React.JSX.Element {
   return (
-    <InspectorRoot badgeCorner="bottom-left">
+    <InspectorRoot
+      badgeCorner="bottom-left"
+      storage={AsyncStorage}
+      storages={inspectorStorages}>
       <DemoApp />
     </InspectorRoot>
   );

@@ -17,6 +17,9 @@ end
 target 'AppInspectorExample' do
   config = use_native_modules!
 
+  pod 'MMKV', '2.4.0'
+  pod 'MMKVCore', '2.4.0'
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.

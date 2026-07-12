@@ -477,6 +477,93 @@ export function makePanelStyles(t: Theme) {
       fontFamily: 'Courier',
       lineHeight: 15,
     },
+
+    // Storage tab
+    storageRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 9,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: t.divider,
+    },
+    storageKey: {
+      color: t.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    storagePreview: {
+      color: t.faint,
+      fontSize: 11,
+      fontFamily: 'Courier',
+      marginTop: 2,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+    },
+    inlineDanger: {
+      color: t.bad,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    dangerBtn: {
+      alignSelf: 'flex-start',
+      backgroundColor: t.badSoft,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      marginBottom: 8,
+    },
+    dangerBtnText: {
+      color: t.bad,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    primaryBtn: {
+      alignSelf: 'flex-start',
+      backgroundColor: t.accent,
+      borderRadius: 8,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      marginBottom: 8,
+    },
+    primaryBtnText: {
+      color: t.accentText,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    neutralBtn: {
+      alignSelf: 'flex-start',
+      backgroundColor: t.surface,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      marginBottom: 8,
+    },
+    neutralBtnText: {
+      color: t.muted,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    valueEditor: {
+      backgroundColor: t.surface,
+      borderRadius: 8,
+      padding: 10,
+      marginTop: 4,
+      marginBottom: 8,
+      color: t.text,
+      fontSize: 11,
+      fontFamily: 'Courier',
+      lineHeight: 15,
+      minHeight: 120,
+      textAlignVertical: 'top',
+    },
   });
 }
 
