@@ -69,7 +69,7 @@ function NetworkDetail({
         value={entry.status !== undefined ? String(entry.status) : 'pending'}
       />
       {entry.durationMs !== undefined ? (
-        <Row label="duration" value={`${entry.durationMs} ms`} />
+        <Row label="duration" value={`${Math.round(entry.durationMs)} ms`} />
       ) : null}
 
       <Text style={styles.sectionTitle}>cURL</Text>
@@ -130,7 +130,7 @@ function NetworkRow({
         {entry.url}
       </Text>
       {entry.durationMs !== undefined ? (
-        <Text style={styles.netMeta}>{entry.durationMs}ms</Text>
+        <Text style={styles.netMeta}>{Math.round(entry.durationMs)}ms</Text>
       ) : null}
       <Text
         style={[styles.netStatus, { color: statusColor(entry.status, theme) }]}

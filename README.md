@@ -4,154 +4,183 @@
 [![npm](https://img.shields.io/npm/v/react-native-app-inspector.svg)](https://www.npmjs.com/package/react-native-app-inspector)
 [![license](https://img.shields.io/npm/l/react-native-app-inspector.svg)](./LICENSE)
 
-> On-device performance & debug panel for React Native — **no Metro, no USB, no computer.**
+> On-device performance & debug panel for React Native — **no Metro, no USB, no
+> computer.** One wrapper component, zero dependencies.
 
-Ship a debug panel **inside** your QA or staging build. When a tester hits jank
-on a release build, on their own phone, three timezones away, they can open the
-panel, see what's slow and **why**, and export the session — with zero external
-tooling.
+Ship it inside your QA / staging build. When a tester hits jank on a release
+build three timezones away, they open the panel on the phone, see **what's slow
+and why**, and share the session as JSON.
 
 <div align="center">
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/ios-timeline.png" width="200" alt="Timeline with cause correlation"><br><sub><b>Timeline</b> · cause correlation</sub></td>
-<td align="center"><img src="docs/screenshots/ios-screens.png" width="200" alt="Per-screen performance scores"><br><sub><b>Screens</b> · 0–100 score</sub></td>
-<td align="center"><img src="docs/screenshots/ios-perf.png" width="200" alt="Native FPS, CPU and memory"><br><sub><b>Perf</b> · FPS / CPU / RSS</sub></td>
-</tr>
-</table>
+<img src="docs/demo.gif" width="320" alt="Inspector demo">
 </div>
-
-## Features
-
-- **Performance Timeline** — one time-ordered log of actions, navigation,
-  renders, network, FPS drops, memory and errors, with automatic **cause
-  correlation**: tap an FPS drop and it tells you what caused it.
-- **Slow Screen detector** — a per-screen profiler that scores every screen
-  **0–100** and lists its concrete problems ("why it's slow").
-- **Native metrics** — JS + UI-thread FPS, **CPU**, resident memory (RSS), jank
-  and JS heap, on iOS & Android.
-- **Automatic capture** — `fetch` / `XMLHttpRequest`, uncaught JS errors and
-  `console.error` / `warn`, with no code changes.
-- **Integrations** — React Navigation tracker, Redux middleware, and session
-  persistence (plug in AsyncStorage to survive a crash/relaunch).
-- **On-device & exportable** — a tabbed panel you toggle with a prop; export the
-  session to JSON or the native share sheet.
 
 ## Install
 
 ```sh
 npm install react-native-app-inspector
+cd ios && pod install        # native FPS/CPU/RSS + network capture (optional)
 ```
 
-`react` and `react-native` are the only peer deps — there are no other runtime
-dependencies. The native module (UI-FPS, CPU, RSS) autolinks; rebuild once after
-installing:
-
-```sh
-cd ios && pod install && cd .. && npx react-native run-ios   # or run-android
-```
-
-Without a rebuild everything still works in JS — you just won't get the native
+`react` and `react-native` are the only peer deps. The native module autolinks;
+without a rebuild everything still works in JS — you just lose the native
 metrics.
 
 ## Quick start
 
 ```tsx
-import { useEffect, useState } from 'react';
-import { AppInspector, InspectorPanel } from 'react-native-app-inspector';
+import { InspectorRoot } from 'react-native-app-inspector';
 
-AppInspector.configure({ enabled: __DEV__ }); // gate to non-production builds
-
-export default function App() {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    AppInspector.start();
-    return () => AppInspector.stop();
-  }, []);
-
+export default function Root() {
   return (
-    <>
-      {/* …your app… */}
-      <InspectorPanel visible={open} initialTab="timeline" />
-    </>
+    <InspectorRoot enabled={__DEV__}>
+      <App />
+    </InspectorRoot>
   );
 }
 ```
 
-You decide when to show the panel via `visible` — a header button, a shake, a
-hidden multi-tap, your dev menu, anything.
+That's the whole integration. Capture starts, a draggable **FPS / CPU / MB
+badge** floats over the app, and tapping it opens the panel.
+
+## What you get
+
+| | | |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/ios-timeline.png" width="240" alt="Timeline tab"><br><sub><b>Timeline</b> — everything in one log,<br>with cause correlation</sub> | <img src="docs/screenshots/ios-network.png" width="240" alt="Network tab"><br><sub><b>Network</b> — every request,<br>captured natively</sub> | <img src="docs/screenshots/ios-taps.png" width="240" alt="Taps tab"><br><sub><b>Taps</b> — tap→response latency,<br>auto-captured</sub> |
+| <img src="docs/screenshots/ios-perf.png" width="240" alt="Perf tab"><br><sub><b>Perf</b> — JS/UI FPS, CPU, memory,<br>renders</sub> | <img src="docs/screenshots/ios-screens.png" width="240" alt="Screens tab"><br><sub><b>Screens</b> — every screen scored<br>0–100, with its problems</sub> | <img src="docs/screenshots/ios-storage.png" width="240" alt="Storage tab"><br><sub><b>Storage</b> — browse & edit<br>AsyncStorage / MMKV</sub> |
+
+| Tab | What it shows |
+|---|---|
+| **Timeline** | Time-ordered log of actions, navigation, renders, network, FPS drops, memory and errors. Tap an FPS drop → **cause correlation** tells you what likely caused it. |
+| **Network** | Every request with method, status, duration. Captured **natively** (NSURLProtocol / OkHttp interceptor) when the native module is installed, XHR patch otherwise. |
+| **Taps** | Tap→response latency for **every pressable**, automatically — labels from `testID` / text, timing from the native touch timestamp to the next presented frame. RAIL-coded: <100 ms good, >300 ms sluggish. |
+| **Perf** | Live JS & UI-thread FPS, CPU, RSS memory, JS heap, jank — plus per-component render stats (count, avg, worst). |
+| **Screens** | Per-screen score **0–100** with the concrete problems: slow load, FPS drops, slow renders, memory growth, slow requests, slow taps. |
+| **Storage** | Key/value browser for AsyncStorage / MMKV / anything: search, pretty-printed JSON, edit, delete, clear. |
+| **Startup** | Time-to-interactive and custom marks (`AppInspector.mark('cache-ready')`). |
+| **Settings** | Pause live updates, share the session (native share sheet), clear, hide the badge. |
+
+Everything above is captured automatically — network, errors (`console.error`
+/ uncaught), FPS/CPU/memory, renders, taps. You only add calls for what the
+library can't see: custom actions and non-React-Navigation screen changes.
+
+## Configuration
+
+All props are optional:
+
+```tsx
+<InspectorRoot
+  enabled={__DEV__}            // false → children render untouched, zero overhead
+  navigationRef={navRef}       // React Navigation ref → automatic screen tracking
+  storage={AsyncStorage}       // persist session → survives a crash/relaunch
+  storages={[mmkvAdapter(kv)]} // extra stores for the Storage tab
+  badge={true}                 // floating FPS badge (drag to any corner)
+  badgeCorner="bottom-left"
+  initialTab="timeline"
+  autoCaptureTaps={true}
+  profileRoot={true}           // root render profiler (id "App")
+  modules={{ network: true, errors: true, performance: true, slowScreens: true }}
+  maxEntries={500}             // ring-buffer size per feed
+/>
+```
 
 ## Recipes
 
 <details>
-<summary><b>React Navigation + crash-surviving persistence</b></summary>
+<summary><b>React Navigation — automatic screen tracking</b></summary>
 
 ```tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  NavigationContainer,
-  useNavigationContainerRef,
-} from '@react-navigation/native';
-import { AppInspector, createNavigationTracker } from 'react-native-app-inspector';
-
-AppInspector.configure({ storage: AsyncStorage }); // last session survives a crash
-
 const navRef = useNavigationContainerRef();
-const tracker = createNavigationTracker(navRef);
 
-<NavigationContainer ref={navRef} {...tracker}>
-  {/* every screen change is logged and profiled automatically */}
-</NavigationContainer>;
+<InspectorRoot enabled={__DEV__} navigationRef={navRef}>
+  <NavigationContainer ref={navRef}>{/* … */}</NavigationContainer>
+</InspectorRoot>;
 ```
+
+Every screen change is logged, timed and profiled. Without React Navigation,
+call `AppInspector.trackNavigation('Checkout')` yourself or wrap screens in
+`<InspectorScreen name="Checkout">`.
 </details>
 
 <details>
-<summary><b>Manual tracking</b></summary>
+<summary><b>Storage tab — AsyncStorage, MMKV, custom stores</b></summary>
+
+```tsx
+import { asyncStorageAdapter, mmkvAdapter } from 'react-native-app-inspector';
+
+<InspectorRoot
+  storages={[asyncStorageAdapter(AsyncStorage), mmkvAdapter(new MMKV())]}>
+```
+
+Passing `storage={AsyncStorage}` alone already enables the tab for it. Any
+object with `{ name, getAllKeys, get, set, remove }` works as a custom store.
+</details>
+
+<details>
+<summary><b>Manual tracking — actions, Redux, network</b></summary>
 
 ```ts
-AppInspector.trackNavigation('Checkout'); // sets the active screen
 AppInspector.trackAction('add_to_cart', { sku: 'A-123' });
 AppInspector.trackNetwork({ method: 'POST', url: '/orders', status: 201, durationMs: 840 });
 
 // Redux — log every dispatch:
 applyMiddleware(AppInspector.getActionLogger().middleware());
+
+// Time a custom interaction (auto tap capture handles normal presses):
+const done = AppInspector.beginInteraction('Checkout');
+await submitOrder();
+done();
 ```
 </details>
 
 <details>
-<summary><b>Profiling a component or a screen</b></summary>
+<summary><b>Profiling one component</b></summary>
 
 ```tsx
-import { InspectorProfiler, InspectorScreen } from 'react-native-app-inspector';
-
-// Track one subtree's render cost:
 <InspectorProfiler id="ProductList">
   <ProductList />
-</InspectorProfiler>;
-
-// Or score a whole screen (when you're not using React Navigation):
-<InspectorScreen name="Checkout">
-  <Checkout />
-</InspectorScreen>;
+</InspectorProfiler>
 ```
+
+Its commit count / avg / worst render times show up under Perf → Renders.
 </details>
 
 <details>
-<summary><b>Exporting a session</b></summary>
+<summary><b>Exporting a session programmatically</b></summary>
 
 ```ts
 import { exportLogs, shareLogs } from 'react-native-app-inspector';
 
-const json = exportLogs(); // serialized snapshot string
-await shareLogs(); // open the native share sheet
+const json = exportLogs(); // full snapshot as a JSON string
+await shareLogs();         // native share sheet (also in the Settings tab)
 ```
+
+`AppInspector.getPreviousSession()` returns the persisted previous session
+(set `storage` to enable) — including one that ended in a crash.
+</details>
+
+<details>
+<summary><b>Custom UI instead of the badge</b></summary>
+
+```tsx
+<InspectorRoot badge={false} /* … */>
+  <App />
+</InspectorRoot>
+```
+
+Then render `<InspectorModal visible={open} onClose={…} />` from your own
+trigger (shake, hidden multi-tap, dev menu). `useInspectorState()` gives you
+the live state for fully custom UIs.
+
+> Render it **as a sibling of `InspectorRoot`**, not inside it — inside the
+> profiled subtree the panel's own re-renders are recorded as app renders.
 </details>
 
 ## Example app
 
-[`example/`](example) is a small Todo app wired up for inspection — using it
-produces real timeline, screen-score and network data. Run it:
+[`example/`](example) is a Todo app wired for inspection — real network,
+actions, renders and taps to look at:
 
 ```sh
 cd example && npm install && npm run ios   # or npm run android
@@ -160,11 +189,7 @@ cd example && npm install && npm run ios   # or npm run android
 ## Development
 
 ```sh
-npm install
-npm run typecheck   # tsc --noEmit (strict)
-npm run lint
-npm test            # jest (logic + UI)
-npm run build       # bob → lib/ (CJS + ESM + types)
+npm run typecheck && npm run lint && npm test
 ```
 
 <details>
@@ -173,17 +198,15 @@ npm run build       # bob → lib/ (CJS + ESM + types)
 ```
 src/
   core/        controller, observable store, shared types (no react-native)
-  modules/     timeline, performance, screens, render, startup,
-               network, actions, errors, navigation, persistence, deviceInfo
+  modules/     timeline, performance, screens, render, startup, network,
+               actions, errors, interactions, taps, navigation, storage,
+               persistence, deviceInfo
   native/      bridge to the iOS/Android native module
-  ui/          in-app panel + tabs
+  ui/          badge, modal, tabs
   export/      snapshot + serialization
-  index.ts     public API
-example/       demo Todo app
-__tests__/     unit tests (logic + UI)
+ios/ android/  native metrics + network capture
 ```
 </details>
-
 
 ## License
 

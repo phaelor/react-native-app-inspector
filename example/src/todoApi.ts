@@ -12,7 +12,10 @@ interface RemoteTodo {
   completed: boolean;
 }
 
-/** Real API client — no inspector code; capture is automatic. */
+/**
+ * A real API client — no inspector code anywhere: every request below shows
+ * up on the timeline via the automatic network capture.
+ */
 export const todoApi = {
   fetchTodos: async (): Promise<Todo[]> => {
     const res = await fetch(`${BASE}/todos?_limit=5`);
@@ -33,6 +36,8 @@ export const todoApi = {
     return {id: String(created.id), title, done: false};
   },
   updateTodo: async (todo: Todo): Promise<Todo> => {
+    // jsonplaceholder 500s on PATCH for ids it doesn't know — handy for the
+    // demo: failed requests land on the timeline too.
     await fetch(`${BASE}/todos/${todo.id}`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
