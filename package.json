@@ -1,6 +1,6 @@
 {
   "name": "react-native-app-inspector",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "On-device performance & debug panel for React Native — no Metro, no USB, no computer.",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
