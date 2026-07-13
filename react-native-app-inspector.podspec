@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.platforms    = { :ios => "13.4" }
-  s.source       = { :git => "https://github.com/phaelor/react-native-app-inspector.git", :tag => "#{s.version}" }
+  s.source       = { :git => "https://github.com/phaelor/react-native-app-inspector.git", :tag => "v#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm}"
 
