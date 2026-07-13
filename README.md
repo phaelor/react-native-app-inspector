@@ -173,8 +173,9 @@ Then render `<InspectorModal visible={open} onClose={…} />` from your own
 trigger (shake, hidden multi-tap, dev menu). `useInspectorState()` gives you
 the live state for fully custom UIs.
 
-> Render it **as a sibling of `InspectorRoot`**, not inside it — inside the
-> profiled subtree the panel's own re-renders are recorded as app renders.
+> Prefer rendering it **as a sibling of `InspectorRoot`** — inside the
+> profiled subtree, commits containing the open panel are excluded from the
+> render stats.
 </details>
 
 ## Example app

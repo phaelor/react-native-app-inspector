@@ -44,6 +44,7 @@ export class InspectorStore {
   private state: InspectorState = emptyState();
   private readonly listeners = new Set<Listener>();
   private maxEntries: number;
+  private emitting = false;
 
   constructor(maxEntries = 500) {
     this.maxEntries = maxEntries;
@@ -125,8 +126,16 @@ export class InspectorStore {
   }
 
   private emit(): void {
-    for (const listener of this.listeners) {
-      listener(this.state);
+    if (this.emitting) {
+      return;
+    }
+    this.emitting = true;
+    try {
+      for (const listener of this.listeners) {
+        listener(this.state);
+      }
+    } finally {
+      this.emitting = false;
     }
   }
 }

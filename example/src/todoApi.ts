@@ -32,12 +32,10 @@ export const todoApi = {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({title, completed: false, userId: 1}),
     });
-    const created = (await res.json()) as {id: number};
-    return {id: String(created.id), title, done: false};
+    await res.json();
+    return {id: `local-${Date.now()}`, title, done: false};
   },
   updateTodo: async (todo: Todo): Promise<Todo> => {
-    // jsonplaceholder 500s on PATCH for ids it doesn't know — handy for the
-    // demo: failed requests land on the timeline too.
     await fetch(`${BASE}/todos/${todo.id}`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},

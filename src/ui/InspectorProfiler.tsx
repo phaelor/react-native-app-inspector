@@ -1,6 +1,7 @@
 import { Profiler } from 'react';
 import type { ProfilerOnRenderCallback, ReactElement, ReactNode } from 'react';
 import { AppInspector } from '../core';
+import { inspectorUiRenderPending } from './uiRenderMark';
 
 export interface InspectorProfilerProps {
   /** Stable id used to aggregate render stats for this subtree. */
@@ -28,6 +29,9 @@ export function InspectorProfiler({
     phase,
     actualDuration,
   ) => {
+    if (inspectorUiRenderPending()) {
+      return;
+    }
     AppInspector.getRenderTracker().record(profilerId, phase, actualDuration);
   };
 

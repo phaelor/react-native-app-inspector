@@ -9,7 +9,8 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { useInspectorState } from './useInspectorState';
+import { AppInspector } from '../core';
+import type { PerformanceSample } from '../core/types';
 import { fpsColor, useTheme } from './theme';
 import type { Theme } from './theme';
 
@@ -32,6 +33,27 @@ const MARGIN = 12;
 const TOP_INSET = 52;
 const BOTTOM_INSET = 40;
 const DRAG_THRESHOLD = 6;
+
+function useLatestSample(active: boolean): PerformanceSample | undefined {
+  const [sample, setSample] = useState<PerformanceSample | undefined>(() => {
+    const perf = AppInspector.getState().performance;
+    return perf[perf.length - 1];
+  });
+
+  useEffect(() => {
+    if (!active) {
+      return undefined;
+    }
+    const sync = (perf: readonly PerformanceSample[]): void => {
+      const next = perf[perf.length - 1];
+      setSample((prev) => (prev === next ? prev : next));
+    };
+    sync(AppInspector.getState().performance);
+    return AppInspector.subscribe((state) => sync(state.performance));
+  }, [active]);
+
+  return sample;
+}
 
 function Stat({
   label,
@@ -58,7 +80,7 @@ export function InspectorFpsBadge({
   onPress,
   initialCorner = 'top-right',
 }: InspectorFpsBadgeProps): ReactElement | null {
-  const state = useInspectorState();
+  const latest = useLatestSample(visible);
   const theme = useTheme();
   const dims = useWindowDimensions();
 
@@ -129,7 +151,6 @@ export function InspectorFpsBadge({
     return null;
   }
 
-  const latest = state.performance[state.performance.length - 1];
   const jsFps = latest?.jsFps ?? 0;
   const uiFps = latest?.uiFps ?? 0;
 

@@ -14,6 +14,7 @@ import {
 import { AppInspector } from '../core';
 import { shareLogs } from '../export/share';
 import { useInspectorState } from './useInspectorState';
+import { markInspectorUiRender } from './uiRenderMark';
 import { TimelineTab } from './panel/TimelineTab';
 import { NetworkTab } from './panel/NetworkTab';
 import { InteractionsTab } from './panel/InteractionsTab';
@@ -169,8 +170,11 @@ export function InspectorModal({
   badgeVisible = true,
   onToggleBadge,
 }: InspectorModalProps): ReactElement {
+  if (visible) {
+    markInspectorUiRender();
+  }
   const { styles, theme } = usePanelStyles();
-  const live = useInspectorState();
+  const live = useInspectorState(visible);
   const reduceMotion = useReduceMotion();
 
   const [tab, setTab] = useState<Tab>(initialTab);
