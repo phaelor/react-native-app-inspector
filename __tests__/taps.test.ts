@@ -72,6 +72,45 @@ describe('TapDetector', () => {
     expect(taps).toEqual([]);
   });
 
+  it('tracks simultaneous taps independently when identifiers are present', () => {
+    const { detector, taps } = makeDetector();
+    detector.touchStart(
+      { pageX: 0, pageY: 0, timestampMs: 0, identifier: 0 },
+      'left',
+    );
+    detector.touchStart(
+      { pageX: 200, pageY: 0, timestampMs: 8, touchCount: 2, identifier: 1 },
+      'right',
+    );
+    detector.touchEnd({ pageX: 0, pageY: 0, timestampMs: 60, identifier: 0 });
+    detector.touchEnd({
+      pageX: 200,
+      pageY: 0,
+      timestampMs: 70,
+      identifier: 1,
+    });
+    expect(taps).toEqual([
+      { nativeTimestampMs: 60, durationMs: 60, target: 'left' },
+      { nativeTimestampMs: 70, durationMs: 62, target: 'right' },
+    ]);
+  });
+
+  it('cancel() drops every pending pointer', () => {
+    const { detector, taps } = makeDetector();
+    detector.touchStart({ pageX: 0, pageY: 0, timestampMs: 0, identifier: 0 });
+    detector.touchStart({
+      pageX: 100,
+      pageY: 0,
+      timestampMs: 5,
+      touchCount: 2,
+      identifier: 1,
+    });
+    detector.cancel();
+    detector.touchEnd({ pageX: 0, pageY: 0, timestampMs: 30, identifier: 0 });
+    detector.touchEnd({ pageX: 100, pageY: 0, timestampMs: 40, identifier: 1 });
+    expect(taps).toEqual([]);
+  });
+
   it('cancel() drops the pending touch', () => {
     const { detector, taps } = makeDetector();
     detector.touchStart({ pageX: 0, pageY: 0, timestampMs: 0 });

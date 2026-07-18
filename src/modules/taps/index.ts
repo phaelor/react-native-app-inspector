@@ -4,6 +4,8 @@ export interface TouchSample {
   /** `nativeEvent.timestamp` — ms on the OS monotonic clock. */
   timestampMs?: number;
   touchCount?: number;
+  /** `nativeEvent.identifier` — matches a touch end to its start pointer. */
+  identifier?: number | string;
 }
 
 export interface DetectedTap {
@@ -28,16 +30,26 @@ interface PendingTouch {
   target?: unknown;
 }
 
+/** Fallback map key when the platform provides no touch identifier. */
+const NO_IDENTIFIER = Symbol('no-identifier');
+const MAX_TRACKED_TOUCHES = 10;
+
 /**
- * Classifies touch starts/ends into taps: a single pointer that neither moved
- * past `maxMovementDp` nor stayed down past `maxDurationMs`.
+ * Classifies touch starts/ends into taps: pointers that neither moved past
+ * `maxMovementDp` nor stayed down past `maxDurationMs`. Pointers are tracked
+ * per `identifier`, so simultaneous taps (two fingers, two buttons) each
+ * resolve independently; without identifiers only one pointer is tracked and
+ * concurrent touches are dropped.
  */
 export class TapDetector {
   private readonly onTap: (tap: DetectedTap) => void;
   private readonly maxDurationMs: number;
   private readonly maxMovementDp: number;
   private readonly now: () => number;
-  private pending: PendingTouch | null = null;
+  private readonly pending = new Map<
+    number | string | typeof NO_IDENTIFIER,
+    PendingTouch
+  >();
 
   constructor(options: TapDetectorOptions) {
     this.onTap = options.onTap;
@@ -47,22 +59,30 @@ export class TapDetector {
   }
 
   touchStart(sample: TouchSample, target?: unknown): void {
-    if ((sample.touchCount ?? 1) > 1 || this.pending !== null) {
-      this.pending = null;
-      return;
+    if (sample.identifier === undefined) {
+      // No way to match this pointer's end to its start: keep the legacy
+      // single-slot behavior and drop overlapping touches entirely.
+      if ((sample.touchCount ?? 1) > 1 || this.pending.size > 0) {
+        this.pending.clear();
+        return;
+      }
     }
-    this.pending = {
+    if (this.pending.size >= MAX_TRACKED_TOUCHES) {
+      this.pending.clear();
+    }
+    this.pending.set(sample.identifier ?? NO_IDENTIFIER, {
       x: sample.pageX,
       y: sample.pageY,
       nativeStartMs: sample.timestampMs,
       jsStartMs: this.now(),
       target,
-    };
+    });
   }
 
   touchEnd(sample: TouchSample): void {
-    const pending = this.pending;
-    this.pending = null;
+    const key = sample.identifier ?? NO_IDENTIFIER;
+    const pending = this.pending.get(key);
+    this.pending.delete(key);
     if (!pending) {
       return;
     }
@@ -86,7 +106,7 @@ export class TapDetector {
   }
 
   cancel(): void {
-    this.pending = null;
+    this.pending.clear();
   }
 }
 
