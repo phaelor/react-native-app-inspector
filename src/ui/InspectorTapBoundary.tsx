@@ -27,6 +27,7 @@ function toSample(event: GestureResponderEvent): TouchSample {
     pageY: native.pageY ?? 0,
     timestampMs: native.timestamp,
     touchCount: native.touches?.length,
+    identifier: native.identifier,
   };
 }
 

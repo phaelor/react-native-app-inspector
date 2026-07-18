@@ -93,6 +93,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
     performance: true,
     errors: true,
     slowScreens: true,
+    taps: true,
   },
 };
 

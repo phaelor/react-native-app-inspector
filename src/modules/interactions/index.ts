@@ -85,29 +85,36 @@ export class InteractionTracker {
   }
 
   begin(label: string, options: BeginInteractionOptions = {}): () => void {
+    const auto = options.auto ?? false;
     const startMs = options.nativeTimestampMs;
+    let adopted: PendingInteraction | null = null;
     if (startMs !== undefined) {
       const dup = this.pending.find(
         (p) =>
+          p.auto !== auto &&
           p.nativeStartMs !== undefined &&
           Math.abs(p.nativeStartMs - startMs) <= DEDUP_WINDOW_MS,
       );
       if (dup) {
-        if (options.auto) {
+        if (auto) {
           return () => {};
         }
-        if (dup.auto) {
-          this.take(dup);
-        }
+        this.take(dup);
       }
+    } else if (!auto) {
+      // An explicit begin with no touch timestamp (e.g. called after an await
+      // inside a press handler) belongs to the tap that is still pending as an
+      // auto capture: adopt its start clocks so one tap yields one measurement
+      // anchored at the actual touch.
+      adopted = this.takeLatestPendingAuto();
     }
     const entry: PendingInteraction = {
       label,
-      jsStartMs: this.now(),
-      nativeStartMs: startMs,
+      jsStartMs: adopted?.jsStartMs ?? this.now(),
+      nativeStartMs: adopted?.nativeStartMs ?? startMs,
       completeOnCommit: options.completeOnCommit ?? false,
-      auto: options.auto ?? false,
-      context: this.captureContext?.(),
+      auto,
+      context: adopted ? adopted.context : this.captureContext?.(),
       timeout: setTimeout(
         () => this.take(entry),
         options.timeoutMs ?? this.timeoutMs,
@@ -140,6 +147,19 @@ export class InteractionTracker {
     }
     this.pending = [];
     this.epoch += 1;
+  }
+
+  private takeLatestPendingAuto(): PendingInteraction | null {
+    let latest: PendingInteraction | null = null;
+    for (const entry of this.pending) {
+      if (entry.auto && (!latest || entry.jsStartMs >= latest.jsStartMs)) {
+        latest = entry;
+      }
+    }
+    if (latest) {
+      this.take(latest);
+    }
+    return latest;
   }
 
   private take(entry: PendingInteraction): boolean {

@@ -311,6 +311,70 @@ describe('InteractionTracker — auto/explicit dedup', () => {
     expect(completed.map((c) => c.label)).toEqual(['First', 'Second']);
   });
 
+  it('two distinct auto taps inside the dedup window are both tracked', () => {
+    const { tracker, completed, set, flushFrames } = makeTracker({});
+    set(0);
+    tracker.begin('First', {
+      nativeTimestampMs: 5000,
+      completeOnCommit: true,
+      auto: true,
+    });
+    tracker.begin('Second', {
+      nativeTimestampMs: 5010,
+      completeOnCommit: true,
+      auto: true,
+    });
+    set(80);
+    tracker.notifyCommit();
+    flushFrames();
+
+    expect(completed.map((c) => c.label)).toEqual(['First', 'Second']);
+  });
+
+  it('an explicit begin without a timestamp adopts the pending auto tap', () => {
+    const { tracker, completed, set, flushFrames } = makeTracker({});
+    set(0);
+    tracker.begin('Tap', {
+      nativeTimestampMs: 5000,
+      completeOnCommit: true,
+      auto: true,
+    });
+    set(30);
+    const done = tracker.begin('Checkout');
+    tracker.notifyCommit();
+    flushFrames();
+    
+    expect(completed).toEqual([]);
+
+    set(200);
+    done();
+    set(216);
+    flushFrames();
+
+    expect(completed).toEqual([
+      { label: 'Checkout', latencyMs: 216, endedBy: 'manual', clock: 'js' },
+    ]);
+  });
+
+  it('an explicit begin without a timestamp is standalone when no auto tap is pending', () => {
+    const { tracker, completed, set, flushFrames } = makeTracker({});
+    set(100);
+    const done = tracker.begin('Background job');
+    set(160);
+    done();
+    set(176);
+    flushFrames();
+
+    expect(completed).toEqual([
+      {
+        label: 'Background job',
+        latencyMs: 76,
+        endedBy: 'manual',
+        clock: 'js',
+      },
+    ]);
+  });
+
   it('two explicit begins with the same timestamp both survive', () => {
     const { tracker, completed, set, flushFrames } = makeTracker({});
     set(0);

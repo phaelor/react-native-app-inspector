@@ -25,7 +25,8 @@ export interface InspectorRootProps {
   profileRoot?: boolean;
   /**
    * Auto-capture tap-to-response latency for every pressable child. Adds one
-   * flex:1 View around the children. Defaults to `true`.
+   * flex:1 View around the children. Defaults to `true`. Capture also honors
+   * `modules.taps` — either switched off disables it.
    */
   autoCaptureTaps?: boolean;
   storage?: AppInspectorConfig['storage'];
@@ -103,11 +104,12 @@ export function InspectorRoot({
     return <>{children}</>;
   }
 
-  const content = autoCaptureTaps ? (
-    <InspectorTapBoundary>{children}</InspectorTapBoundary>
-  ) : (
-    children
-  );
+  const content =
+    autoCaptureTaps && modules?.taps !== false ? (
+      <InspectorTapBoundary>{children}</InspectorTapBoundary>
+    ) : (
+      children
+    );
 
   return (
     <>

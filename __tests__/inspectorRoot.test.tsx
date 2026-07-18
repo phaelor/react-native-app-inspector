@@ -218,6 +218,15 @@ describe('<InspectorRoot />', () => {
     expect(queryByTestId('inspector-tap-boundary')).toBeNull();
   });
 
+  it('omits the tap boundary when modules.taps is false', () => {
+    const { queryByTestId } = render(
+      <InspectorRoot modules={{ taps: false }}>
+        <Text>app</Text>
+      </InspectorRoot>,
+    );
+    expect(queryByTestId('inspector-tap-boundary')).toBeNull();
+  });
+
   it('records root render stats via the built-in profiler', () => {
     render(
       <InspectorRoot>

@@ -32,6 +32,8 @@ export interface ModuleFlags {
   errors?: boolean;
   /** Build per-screen performance profiles (the slow-screen detector). */
   slowScreens?: boolean;
+  /** Auto-capture tap-to-response latency via the root tap boundary. */
+  taps?: boolean;
 }
 
 export interface StorageInspectorAdapter {
