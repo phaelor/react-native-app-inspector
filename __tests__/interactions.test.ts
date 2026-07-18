@@ -343,7 +343,7 @@ describe('InteractionTracker — auto/explicit dedup', () => {
     const done = tracker.begin('Checkout');
     tracker.notifyCommit();
     flushFrames();
-    
+
     expect(completed).toEqual([]);
 
     set(200);

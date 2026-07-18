@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.1 — 2026-07-19
+
+### Fixed
+
+- Tap dedup no longer collapses two distinct taps landing within 32 ms of
+  each other — only an auto-captured and an explicit begin of the same touch
+  dedup (the explicit label wins, as before).
+- `AppInspector.beginInteraction()` called without a touch timestamp (e.g.
+  after an `await` inside a press handler) adopts the pending auto-captured
+  tap instead of double-counting it, so one tap yields one measurement
+  anchored at the actual touch.
+- Simultaneous taps (two fingers, two buttons) are now tracked independently:
+  the tap detector keys pending touches by `nativeEvent.identifier` instead
+  of a single slot that dropped both.
+
+### Added
+
+- `modules.taps` flag — automatic tap capture is now switchable through the
+  standard module flags like every other capture module. The
+  `autoCaptureTaps` prop on `InspectorRoot` still works; either switch
+  disables capture.
+
 ## 0.2.0 — 2026-07-13
 
 ### Breaking
