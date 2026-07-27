@@ -171,8 +171,9 @@ RCT_EXPORT_METHOD(watchNextFrame : (RCTPromiseResolveBlock)resolve
   }
 }
 
-RCT_EXPORT_METHOD(startNetworkCapture) {
+RCT_EXPORT_METHOD(startNetworkCapture : (BOOL)captureBodies) {
   [NSURLProtocol registerClass:[AppInspectorURLProtocol class]];
+  [AppInspectorURLProtocol setCaptureBodies:captureBodies];
   [AppInspectorURLProtocol setEnabled:YES];
   __weak AppInspector *weakSelf = self;
   [AppInspectorURLProtocol setEventHandler:^(NSDictionary *entry) {
