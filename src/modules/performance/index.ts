@@ -38,6 +38,12 @@ interface PerfGlobals {
     now?: () => number;
     memory?: { usedJSHeapSize?: number; totalJSHeapSize?: number };
   };
+  HermesInternal?: {
+    getInstrumentedStats?: () => {
+      js_allocatedBytes?: number;
+      js_heapSize?: number;
+    };
+  };
 }
 
 const g = globalThis as unknown as PerfGlobals;
@@ -68,10 +74,29 @@ function defaultCancelFrame(handle: number): void {
   }
 }
 
-function defaultReadMemory(): Pick<
-  PerformanceSample,
-  'jsHeapUsedMb' | 'jsHeapTotalMb'
-> {
+type HeapReading = Pick<PerformanceSample, 'jsHeapUsedMb' | 'jsHeapTotalMb'>;
+
+// Hermes has no `performance.memory`; its GC stats are the only heap source.
+function readHermesHeap(): HeapReading | null {
+  const stats = g.HermesInternal?.getInstrumentedStats;
+  if (typeof stats !== 'function') {
+    return null;
+  }
+  try {
+    const { js_allocatedBytes: used, js_heapSize: total } = stats();
+    if (typeof used !== 'number') {
+      return null;
+    }
+    return {
+      jsHeapUsedMb: roundMb(used),
+      jsHeapTotalMb: typeof total === 'number' ? roundMb(total) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function defaultReadMemory(): HeapReading {
   const mem = g.performance?.memory;
   if (mem && typeof mem.usedJSHeapSize === 'number') {
     return {
@@ -82,7 +107,7 @@ function defaultReadMemory(): Pick<
           : undefined,
     };
   }
-  return {};
+  return readHermesHeap() ?? {};
 }
 
 /**

@@ -31,3 +31,50 @@ jobs:
 
       - name: Test
         run: npm test
+
+  # The JS job never touches the native code; these two compile it against the
+  # example app so a broken .m/.kt cannot ship.
+  android:
+    name: Compile Android module
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install example dependencies
+        run: npm install
+        working-directory: example
+      - name: Compile library Kotlin
+        run: ./gradlew :react-native-app-inspector:compileDebugKotlin --no-daemon
+        working-directory: example/android
+
+  ios:
+    name: Compile iOS module
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install example dependencies
+        run: npm install
+        working-directory: example
+      - name: Install pods
+        run: bundle install && bundle exec pod install --project-directory=ios
+        working-directory: example
+        env:
+          LANG: en_US.UTF-8
+      - name: Build library pod
+        run: |
+          xcodebuild -workspace AppInspectorExample.xcworkspace \
+            -scheme react-native-app-inspector \
+            -sdk iphonesimulator -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -50
+        working-directory: example/ios

@@ -3,8 +3,10 @@
 typedef void (^AppInspectorNetworkHandler)(NSDictionary *entry);
 
 /**
- * Observes HTTP(S) traffic in React Native's NSURLSession (and, while capture
- * is on, the shared session). Inert until `setEnabled:YES`.
+ * Observes HTTP(S) traffic of every default/ephemeral NSURLSession created
+ * after app load (React Native's included) by prepending itself to the
+ * configuration's `protocolClasses`; the host's own session configuration
+ * provider is left untouched. Inert until `setEnabled:YES`.
  */
 @interface AppInspectorURLProtocol : NSURLProtocol
 

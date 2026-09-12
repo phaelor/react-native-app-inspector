@@ -17,29 +17,41 @@ object AppInspectorNetwork {
     ((method: String, url: String, status: Int, startedAt: Long, durationMs: Long) -> Unit)? =
     null
 
-  private var installed = false
+  /** True once the interceptor is wired into RN's client; JS falls back to the XHR patch otherwise. */
+  @Volatile var installed = false
+    private set
 
+  private var attempted = false
+
+  /**
+   * Chains onto any factory the host already registered. RN exposes no getter
+   * for it, so it is read reflectively; if that read fails on some RN version
+   * we do NOT install (replacing an unknown host factory silently would break
+   * e.g. certificate pinning) and JS captures via XHR instead.
+   */
   @Synchronized
   fun install() {
-    if (installed) return
-    installed = true
-    val existing = existingFactory()
+    if (attempted) return
+    attempted = true
+    val existing = try {
+      val field = OkHttpClientProvider::class.java.getDeclaredField("sFactory")
+      field.isAccessible = true
+      field.get(null) as? OkHttpClientFactory
+    } catch (e: Throwable) {
+      android.util.Log.w(
+        "AppInspector",
+        "Cannot read OkHttpClientProvider factory; native network capture disabled",
+      )
+      return
+    }
     OkHttpClientProvider.setOkHttpClientFactory {
       val base =
         existing?.createNewNetworkModuleClient()
           ?: OkHttpClientProvider.createClientBuilder().build()
       base.newBuilder().addInterceptor(CaptureInterceptor()).build()
     }
+    installed = true
   }
-
-  private fun existingFactory(): OkHttpClientFactory? =
-    try {
-      val field = OkHttpClientProvider::class.java.getDeclaredField("sFactory")
-      field.isAccessible = true
-      field.get(null) as? OkHttpClientFactory
-    } catch (e: Exception) {
-      null
-    }
 
   private class CaptureInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {

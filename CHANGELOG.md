@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.2 — Unreleased
+
+### Fixed
+
+- iOS network capture no longer replaces the host's
+  `RCTSetCustomNSURLSessionConfigurationProvider`. The interceptor now joins
+  every default/ephemeral session's `protocolClasses` at load, so it also
+  survives a host that registers its own provider (SSL pinning, proxies).
+- iOS interceptor reuses one shared `NSURLSession` instead of creating one per
+  request, and logs redirect hops with their 3xx status instead of delivering
+  the redirect response twice to the client.
+- Android: if the OkHttp client factory cannot be read reflectively on some
+  React Native version, the native interceptor is left uninstalled (the host's
+  factory is never replaced blindly) and JS falls back to the XHR patch via the
+  new `networkCaptureAvailable` module constant.
+- Android: memory (`Debug.getMemoryInfo`, a binder call) and CPU sampling moved
+  off the main thread so the monitor no longer perturbs the UI FPS it measures.
+- JS heap is now reported on Hermes (via `HermesInternal.getInstrumentedStats`);
+  previously it was always empty because Hermes lacks `performance.memory`.
+
+### Internal
+
+- CI compiles the Android and iOS native modules against the example app.
+
 ## 0.2.1 — 2026-07-19
 
 ### Fixed
