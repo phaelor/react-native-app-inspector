@@ -10,6 +10,8 @@ interface AppInspectorNativeModule {
   /** Present from the version that ships the native network interceptor. */
   startNetworkCapture?(): void;
   stopNetworkCapture?(): void;
+  /** Android: false when the OkHttp interceptor could not be installed. */
+  networkCaptureAvailable?: boolean;
 }
 
 const EVENT_NAME = 'AppInspectorMetrics';
@@ -84,7 +86,10 @@ class NativeMetricsBridge implements NativeMetricsProvider {
   }
 
   supportsNetworkCapture(): boolean {
-    return typeof nativeModule?.startNetworkCapture === 'function';
+    return (
+      typeof nativeModule?.startNetworkCapture === 'function' &&
+      nativeModule.networkCaptureAvailable !== false
+    );
   }
 
   startNetworkCapture(onEntry: (event: NativeNetworkEvent) => void): void {

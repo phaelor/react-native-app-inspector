@@ -32,17 +32,18 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
 
   private var frameCount = 0
   private var windowStartNanos = 0L
-  private var uiFps = 0.0
-  private var monitoring = false
+  @Volatile private var uiFps = 0.0
+  @Volatile private var monitoring = false
   private val handler = Handler(Looper.getMainLooper())
   private var emitRunnable: Runnable? = null
   private var lastCpuTicks = -1L
   private var lastCpuAt = 0L
 
-  // FrameMetrics callbacks run off the UI thread so the watch does not perturb
-  // the frame timing it measures.
-  private val frameMetricsHandler: Handler by lazy {
-    val thread = HandlerThread("AppInspectorFrameMetrics")
+  // Memory/CPU sampling (Debug.getMemoryInfo is a binder call into
+  // system_server) and FrameMetrics callbacks run off the UI thread so the
+  // measurement does not perturb the frame timing it measures.
+  private val workerHandler: Handler by lazy {
+    val thread = HandlerThread("AppInspectorWorker")
     thread.start()
     Handler(thread.looper)
   }
@@ -52,6 +53,9 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
   }
 
   override fun getName(): String = "AppInspector"
+
+  override fun getConstants(): Map<String, Any> =
+    mapOf("networkCaptureAvailable" to AppInspectorNetwork.installed)
 
   @ReactMethod
   fun startMonitoring(intervalMs: Double) {
@@ -68,11 +72,11 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
         override fun run() {
           if (!monitoring) return
           emit()
-          handler.postDelayed(this, intervalMs.toLong())
+          workerHandler.postDelayed(this, intervalMs.toLong())
         }
       }
       emitRunnable = runnable
-      handler.postDelayed(runnable, intervalMs.toLong())
+      workerHandler.postDelayed(runnable, intervalMs.toLong())
     }
   }
 
@@ -84,7 +88,7 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
   private fun stopInternal() {
     monitoring = false
     Choreographer.getInstance().removeFrameCallback(this)
-    emitRunnable?.let { handler.removeCallbacks(it) }
+    emitRunnable?.let { workerHandler.removeCallbacks(it) }
     emitRunnable = null
   }
 
@@ -100,11 +104,15 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
     Choreographer.getInstance().postFrameCallback(this)
   }
 
+  // Runs on the worker thread.
   private fun emit() {
+    val memoryMb = usedMemoryMb()
+    val cpu = cpuPercent()
+    if (!monitoring || !reactContext.hasActiveReactInstance()) return
     val map = Arguments.createMap()
     map.putDouble("uiFps", Math.round(uiFps).toDouble())
-    map.putDouble("usedMemoryMb", usedMemoryMb())
-    map.putDouble("cpuPercent", cpuPercent())
+    map.putDouble("usedMemoryMb", memoryMb)
+    map.putDouble("cpuPercent", cpu)
     reactContext
       .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
       .emit("AppInspectorMetrics", map)
@@ -184,7 +192,7 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
       }
     }
     try {
-      window.addOnFrameMetricsAvailableListener(listener, frameMetricsHandler)
+      window.addOnFrameMetricsAvailableListener(listener, workerHandler)
     } catch (e: Exception) {
       Choreographer.getInstance().postFrameCallback { frameTimeNanos ->
         promise.resolve(frameTimeNanos / 1_000_000.0)

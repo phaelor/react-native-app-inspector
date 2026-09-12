@@ -37,3 +37,30 @@ describe('NativeMetricsModule — native module not linked', () => {
     await expect(NativeMetricsModule.watchNextFrame()).resolves.toBeNull();
   });
 });
+
+describe('NativeMetricsModule — network capture capability', () => {
+  it('reports no native capture when the module is not linked', () => {
+    expect(NativeMetricsModule.supportsNetworkCapture()).toBe(false);
+  });
+
+  it('honours networkCaptureAvailable=false from Android', () => {
+    jest.isolateModules(() => {
+      const rn =
+        jest.requireActual<typeof import('react-native')>('react-native');
+      rn.NativeModules.AppInspector = {
+        startMonitoring: jest.fn(),
+        stopMonitoring: jest.fn(),
+        getProcessStartTime: jest.fn(),
+        watchNextFrame: jest.fn(),
+        startNetworkCapture: jest.fn(),
+        stopNetworkCapture: jest.fn(),
+        networkCaptureAvailable: false,
+      };
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { NativeMetricsModule: bridge } = require('../src/native');
+      expect(bridge.isAvailable()).toBe(true);
+      expect(bridge.supportsNetworkCapture()).toBe(false);
+      delete rn.NativeModules.AppInspector;
+    });
+  });
+});
