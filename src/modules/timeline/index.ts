@@ -216,6 +216,18 @@ export class Timeline {
     });
   }
 
+  /** Record a frozen frame (the JS thread stalled for `stallMs`). */
+  trackFreeze(stallMs: number): TimelineEvent {
+    const rounded = Math.round(stallMs);
+    return this.add({
+      type: 'fps',
+      label: `Frozen frame ${rounded}ms`,
+      durationMs: rounded,
+      severity: 'error',
+      data: { frozen: true, stallMs: rounded },
+    });
+  }
+
   trackMemory(beforeMb: number, afterMb: number): TimelineEvent {
     const deltaMb = Math.round((afterMb - beforeMb) * 10) / 10;
     return this.add({

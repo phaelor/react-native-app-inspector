@@ -9,6 +9,13 @@ export interface PerformanceMonitorOptions {
   maxSamples?: number;
   /** Frame durations (ms) above this count as janky. Default 50. */
   jankThresholdMs?: number;
+  /**
+   * A gap between frames at/above this (ms) is a frozen frame: the JS thread
+   * was blocked and the app looked dead. Default 700 (Android's definition).
+   */
+  frozenThresholdMs?: number;
+  /** Called once per frozen frame with the stall length (ms). */
+  onFreeze?: (stallMs: number) => void;
   /** Schedule a frame callback. Defaults to `requestAnimationFrame`. */
   scheduleFrame?: (cb: (ts: number) => void) => number;
   /** Cancel a scheduled frame. Defaults to `cancelAnimationFrame`. */
@@ -126,12 +133,15 @@ export class PerformanceMonitor {
   private readonly tick: FrameCallback;
   private frameHandle: number | null = null;
   private windowStart: number | null = null;
+  private lastFrameTs: number | null = null;
 
   constructor(options: PerformanceMonitorOptions = {}) {
     this.options = {
       sampleIntervalMs: options.sampleIntervalMs ?? 1000,
       maxSamples: options.maxSamples ?? 120,
       jankThresholdMs: options.jankThresholdMs ?? 50,
+      frozenThresholdMs: options.frozenThresholdMs ?? 700,
+      onFreeze: options.onFreeze ?? (() => {}),
       scheduleFrame: options.scheduleFrame ?? defaultScheduleFrame,
       cancelFrame: options.cancelFrame ?? defaultCancelFrame,
       now: options.now ?? Date.now,
@@ -154,7 +164,18 @@ export class PerformanceMonitor {
     }
     this.window.reset();
     this.windowStart = null;
+    this.lastFrameTs = null;
     this.frameHandle = this.options.scheduleFrame(this.tick);
+  }
+
+  /**
+   * Forget the last frame time. Call when the app returns to the foreground:
+   * no frames run in the background, and that gap is not a freeze.
+   */
+  resetFrameGap(): void {
+    this.lastFrameTs = null;
+    this.windowStart = null;
+    this.window.reset();
   }
 
   /** Stop the loop and cancel the pending frame. */
@@ -169,6 +190,13 @@ export class PerformanceMonitor {
     if (this.windowStart === null) {
       this.windowStart = ts;
     }
+    if (this.lastFrameTs !== null) {
+      const gap = ts - this.lastFrameTs;
+      if (gap >= this.options.frozenThresholdMs) {
+        this.options.onFreeze(Math.round(gap));
+      }
+    }
+    this.lastFrameTs = ts;
     this.window.record(ts);
 
     if (ts - this.windowStart >= this.options.sampleIntervalMs) {

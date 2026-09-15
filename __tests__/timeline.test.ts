@@ -129,3 +129,18 @@ describe('Timeline', () => {
     expect(exported.events).toHaveLength(1);
   });
 });
+
+describe('Timeline.trackFreeze', () => {
+  it('records an error fps event carrying the stall length', () => {
+    const timeline = new Timeline({ now: () => 1000 });
+    const event = timeline.trackFreeze(912.4);
+    expect(event).toMatchObject({
+      type: 'fps',
+      label: 'Frozen frame 912ms',
+      durationMs: 912,
+      severity: 'error',
+      data: { frozen: true, stallMs: 912 },
+    });
+    expect(timeline.correlate()?.event.id).toBe(event.id);
+  });
+});
