@@ -72,6 +72,7 @@ export type { InspectorState } from './core';
 export type {
   AppInspectorConfig,
   ModuleFlags,
+  NetworkCaptureOptions,
   PersistenceAdapter,
   ClipboardAdapter,
   StorageInspectorAdapter,

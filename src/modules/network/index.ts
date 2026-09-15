@@ -1,14 +1,71 @@
 import type { NetworkLogEntry } from '../../core/types';
+import { DEFAULT_MAX_BODY_BYTES, redactUrl, sanitizeBody } from './redact';
 
 export interface NetworkLoggerOptions {
   /** Called once per completed request (success or failure). */
   onEntry: (entry: NetworkLogEntry) => void;
+  onLateBody?: (id: string, responseBody: unknown) => void;
+  captureBodies?: boolean;
+  maxBodyBytes?: number;
 }
 
 interface XhrMeta {
   method: string;
   url: string;
   startedAt: number;
+  requestBody?: unknown;
+}
+
+/** A blob body, readable only asynchronously via FileReader. */
+interface PendingBlob {
+  blob: unknown;
+}
+
+/**
+ * Guards the `responseType` values whose `responseText` getter throws. RN's
+ * `fetch` asks for a blob, so `_response` is a blob handle, not text — those
+ * are returned as {@link PendingBlob} for the caller to decode off the hot path.
+ */
+function readResponseBody(xhr: XMLHttpRequest): unknown | PendingBlob {
+  const type = xhr.responseType;
+  if (type === 'blob') {
+    try {
+      const blob = xhr.response as unknown;
+      return blob ? { blob } : undefined;
+    } catch {
+      return '[blob]';
+    }
+  }
+  if (type === 'arraybuffer') {
+    return '[arraybuffer]';
+  }
+  try {
+    return type === 'json' ? xhr.response : xhr.responseText;
+  } catch {
+    return undefined;
+  }
+}
+
+function isPendingBlob(value: unknown): value is PendingBlob {
+  return typeof value === 'object' && value !== null && 'blob' in value;
+}
+
+function readBlobText(blob: unknown, onText: (text: string) => void): void {
+  const Reader = (globalThis as { FileReader?: typeof FileReader }).FileReader;
+  if (!Reader) {
+    return;
+  }
+  try {
+    const reader = new Reader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        onText(reader.result);
+      }
+    };
+    reader.readAsText(blob as Blob);
+  } catch {
+    /* body inspection is best-effort */
+  }
 }
 
 type PatchableXhr = XMLHttpRequest & { __inspector?: XhrMeta };
@@ -28,12 +85,18 @@ function nextId(): string {
  */
 export class NetworkLogger {
   private readonly onEntry: (entry: NetworkLogEntry) => void;
+  private readonly onLateBody?: (id: string, responseBody: unknown) => void;
+  private readonly captureBodies: boolean;
+  private readonly maxBodyBytes: number;
   private running = false;
   private originalOpen: XMLHttpRequest['open'] | null = null;
   private originalSend: XMLHttpRequest['send'] | null = null;
 
   constructor(options: NetworkLoggerOptions) {
     this.onEntry = options.onEntry;
+    this.onLateBody = options.onLateBody;
+    this.captureBodies = options.captureBodies ?? true;
+    this.maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   }
 
   /** Patch `XMLHttpRequest` and begin recording. Idempotent. */
@@ -50,6 +113,9 @@ export class NetworkLogger {
 
     const proto = Xhr.prototype;
     const onEntry = this.onEntry;
+    const onLateBody = this.onLateBody;
+    const captureBodies = this.captureBodies;
+    const maxBodyBytes = this.maxBodyBytes;
     this.originalOpen = proto.open;
     this.originalSend = proto.send;
     const originalOpen = proto.open;
@@ -63,7 +129,7 @@ export class NetworkLogger {
     ) {
       this.__inspector = {
         method: (method || 'GET').toUpperCase(),
-        url: String(url),
+        url: redactUrl(String(url)),
         startedAt: 0,
       };
       return Reflect.apply(originalOpen, this, [method, url, ...rest]);
@@ -73,15 +139,30 @@ export class NetworkLogger {
       const meta = this.__inspector;
       if (meta) {
         meta.startedAt = Date.now();
+        if (captureBodies) {
+          meta.requestBody = sanitizeBody(body, maxBodyBytes);
+        }
         this.addEventListener('loadend', () => {
+          const id = nextId();
+          const raw = captureBodies ? readResponseBody(this) : undefined;
+          const pending = isPendingBlob(raw);
+
           onEntry({
-            id: nextId(),
+            id,
             method: meta.method,
             url: meta.url,
             status: this.status || undefined,
             startedAt: meta.startedAt,
             durationMs: Date.now() - meta.startedAt,
+            requestBody: meta.requestBody,
+            responseBody: pending ? undefined : sanitizeBody(raw, maxBodyBytes),
           });
+
+          if (pending && onLateBody) {
+            readBlobText(raw.blob, (text) =>
+              onLateBody(id, sanitizeBody(text, maxBodyBytes)),
+            );
+          }
         });
       }
       return Reflect.apply(

@@ -138,6 +138,45 @@ describe('native network capture', () => {
     AppInspector.start();
     expect(provider.startNetworkCapture).not.toHaveBeenCalled();
   });
+
+  it('stores natively captured bodies with secrets redacted', () => {
+    const provider = makeProvider();
+    AppInspector.setNativeMetricsProvider(provider);
+    AppInspector.configure();
+    AppInspector.start();
+    provider.emit({
+      method: 'POST',
+      url: 'https://api.example.com/login?api_key=abc123',
+      status: 200,
+      startedAt: Date.now(),
+      durationMs: 40,
+      requestBody: JSON.stringify({ user: 'bob', password: 'hunter2' }),
+      responseBody: JSON.stringify({ access_token: 'tok', expiresIn: 60 }),
+    });
+
+    const entry = AppInspector.getState().network[0];
+    expect(entry?.url).toBe('https://api.example.com/login?api_key=[redacted]');
+    expect(entry?.requestBody).toEqual({
+      user: 'bob',
+      password: '[redacted]',
+    });
+    expect(entry?.responseBody).toEqual({
+      access_token: '[redacted]',
+      expiresIn: 60,
+    });
+  });
+
+  it('asks the native side to skip bodies when capture is disabled', () => {
+    const provider = makeProvider();
+    AppInspector.setNativeMetricsProvider(provider);
+    AppInspector.configure({ network: { captureBodies: false } });
+    AppInspector.start();
+
+    expect(provider.startNetworkCapture).toHaveBeenCalledWith(
+      expect.any(Function),
+      false,
+    );
+  });
 });
 
 describe('export snapshot', () => {

@@ -5,6 +5,7 @@ import type {
   InspectorSnapshot,
   NativeMetrics,
   NativeNetworkEvent,
+  NetworkCaptureOptions,
   NetworkLogEntry,
   PerformanceSample,
   TimelineCorrelation,
@@ -16,6 +17,11 @@ import { RenderTracker } from '../modules/render';
 import { StartupTracker } from '../modules/startup';
 import { Timeline, type NetworkEventInput } from '../modules/timeline';
 import { NetworkLogger } from '../modules/network';
+import {
+  DEFAULT_MAX_BODY_BYTES,
+  redactUrl,
+  sanitizeBody,
+} from '../modules/network/redact';
 import { ActionLogger } from '../modules/actions';
 import { ErrorTracker } from '../modules/errors';
 import {
@@ -74,14 +80,17 @@ export interface NativeMetricsProvider {
   /** Whether the native layer can capture network traffic. */
   supportsNetworkCapture?(): boolean;
   /** Begin native capture; `onEntry` fires once per completed request. */
-  startNetworkCapture?(onEntry: (event: NativeNetworkEvent) => void): void;
+  startNetworkCapture?(
+    onEntry: (event: NativeNetworkEvent) => void,
+    captureBodies?: boolean,
+  ): void;
   stopNetworkCapture?(): void;
 }
 
 /** Config with all module flags resolved; adapters are held separately. */
 type ResolvedConfig = Required<
-  Omit<AppInspectorConfig, 'storage' | 'clipboard' | 'storages'>
->;
+  Omit<AppInspectorConfig, 'storage' | 'clipboard' | 'storages' | 'network'>
+> & { network: Required<NetworkCaptureOptions> };
 
 const DEFAULT_CONFIG: ResolvedConfig = {
   enabled: true,
@@ -94,6 +103,10 @@ const DEFAULT_CONFIG: ResolvedConfig = {
     errors: true,
     slowScreens: true,
     taps: true,
+  },
+  network: {
+    captureBodies: true,
+    maxBodyBytes: DEFAULT_MAX_BODY_BYTES,
   },
 };
 
@@ -149,9 +162,7 @@ class AppInspectorController {
   private nativeMetrics: NativeMetricsProvider | null = null;
   private deviceInfoProvider: (() => DeviceInfoSnapshot) | null = null;
   private lastSample: PerformanceSample | null = null;
-  private readonly networkLogger = new NetworkLogger({
-    onEntry: (entry) => this.recordNetwork(entry),
-  });
+  private networkLogger: NetworkLogger | null = null;
   private readonly actionLogger = new ActionLogger({
     onEntry: (entry) => {
       this.store.pushAction(entry);
@@ -196,6 +207,7 @@ class AppInspectorController {
       ...DEFAULT_CONFIG,
       ...rest,
       modules: { ...DEFAULT_CONFIG.modules, ...config.modules },
+      network: { ...DEFAULT_CONFIG.network, ...config.network },
     };
     this.store.setMaxEntries(this.config.maxEntries);
     this.persistence = storage ? new SessionPersistence(storage) : null;
@@ -254,17 +266,29 @@ class AppInspectorController {
 
     if (this.config.modules.network) {
       if (this.nativeMetrics?.supportsNetworkCapture?.()) {
-        this.nativeMetrics.startNetworkCapture?.((event) =>
-          this.recordNetwork({
-            id: uid('net'),
-            method: event.method,
-            url: event.url,
-            status: event.status > 0 ? event.status : undefined,
-            startedAt: event.startedAt,
-            durationMs: event.durationMs,
-          }),
+        const { captureBodies, maxBodyBytes } = this.config.network;
+        this.nativeMetrics?.startNetworkCapture?.(
+          (event) =>
+            this.recordNetwork({
+              id: uid('net'),
+              method: event.method,
+              url: redactUrl(event.url),
+              status: event.status > 0 ? event.status : undefined,
+              startedAt: event.startedAt,
+              durationMs: event.durationMs,
+              requestBody: sanitizeBody(event.requestBody, maxBodyBytes),
+              responseBody: sanitizeBody(event.responseBody, maxBodyBytes),
+            }),
+          captureBodies,
         );
       } else {
+        this.networkLogger = new NetworkLogger({
+          onEntry: (entry) => this.recordNetwork(entry),
+          onLateBody: (id, responseBody) =>
+            this.store.patchNetwork(id, { responseBody }),
+          captureBodies: this.config.network.captureBodies,
+          maxBodyBytes: this.config.network.maxBodyBytes,
+        });
         this.networkLogger.start();
       }
     }
@@ -341,7 +365,8 @@ class AppInspectorController {
     this.perf = null;
     this.nativeMetrics?.stop();
     this.nativeMetrics?.stopNetworkCapture?.();
-    this.networkLogger.stop();
+    this.networkLogger?.stop();
+    this.networkLogger = null;
     this.errorTracker.stop();
     void this.persist();
     this.running = false;
@@ -441,7 +466,7 @@ class AppInspectorController {
     this.recordNetwork({
       id: uid('net'),
       method: input.method,
-      url: input.url,
+      url: redactUrl(input.url),
       status: input.status,
       startedAt: Date.now() - input.durationMs,
       durationMs: input.durationMs,

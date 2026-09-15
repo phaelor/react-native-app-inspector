@@ -38,7 +38,7 @@ function asCurl(entry: NetworkLogEntry): string {
   const parts = [`curl -X ${entry.method} '${entry.url}'`];
   const req = body(entry.requestBody);
   if (req) {
-    parts.push(`  -d '${req}'`);
+    parts.push(`  -d '${req.replace(/'/g, `'\\''`)}'`);
   }
   return parts.join(' \\\n');
 }

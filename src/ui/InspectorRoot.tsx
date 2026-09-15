@@ -34,6 +34,7 @@ export interface InspectorRootProps {
   storages?: AppInspectorConfig['storages'];
   clipboard?: AppInspectorConfig['clipboard'];
   modules?: AppInspectorConfig['modules'];
+  network?: AppInspectorConfig['network'];
   maxEntries?: number;
 }
 
@@ -61,6 +62,7 @@ export function InspectorRoot({
   storages,
   clipboard,
   modules,
+  network,
   maxEntries,
 }: InspectorRootProps): ReactElement {
   const [panelOpen, setPanelOpen] = useState(false);
@@ -68,7 +70,14 @@ export function InspectorRoot({
 
   // Read at start() time so inline object props don't restart capture.
   const configRef = useRef<AppInspectorConfig>({});
-  configRef.current = { storage, storages, clipboard, modules, maxEntries };
+  configRef.current = {
+    storage,
+    storages,
+    clipboard,
+    modules,
+    network,
+    maxEntries,
+  };
 
   // Layout effect: runs before any child's passive effect, so requests fired
   // from children's mount effects are already captured.
@@ -76,13 +85,14 @@ export function InspectorRoot({
     if (!enabled) {
       return undefined;
     }
-    const { storage, storages, clipboard, modules, maxEntries } =
+    const { storage, storages, clipboard, modules, network, maxEntries } =
       configRef.current;
     const config: AppInspectorConfig = { enabled: true };
     if (storage) config.storage = storage;
     if (storages) config.storages = storages;
     if (clipboard) config.clipboard = clipboard;
     if (modules) config.modules = modules;
+    if (network) config.network = network;
     if (maxEntries !== undefined) config.maxEntries = maxEntries;
     AppInspector.configure(config);
     AppInspector.start();
