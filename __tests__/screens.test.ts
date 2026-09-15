@@ -318,3 +318,20 @@ describe('ScreenMonitor — integration via AppInspector', () => {
     expect(AppInspector.getState().screens).toEqual([]);
   });
 });
+
+describe('ScreenMonitor frozen frames', () => {
+  it('penalises a screen with frozen frames and lists the problem', () => {
+    const monitor = new ScreenMonitor({ now: () => 0 });
+    monitor.enter('Feed');
+    monitor.recordFreeze();
+    monitor.recordFreeze();
+    const [feed] = monitor.getProfiles();
+    expect(feed?.fps.frozen).toBe(2);
+    expect(feed?.score).toBe(80);
+    expect(feed?.problems).toContainEqual({
+      kind: 'fps',
+      severity: 'error',
+      label: '2 frozen frame(s)',
+    });
+  });
+});

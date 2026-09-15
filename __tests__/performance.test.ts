@@ -76,3 +76,40 @@ describe('PerformanceMonitor heap reading', () => {
     expect(sample?.jsHeapUsedMb).toBeUndefined();
   });
 });
+
+describe('PerformanceMonitor frozen frames', () => {
+  function monitorWith(onFreeze: (ms: number) => void) {
+    let cb: FrameCb | null = null;
+    const monitor = new PerformanceMonitor({
+      scheduleFrame: (fn) => {
+        cb = fn;
+        return 1;
+      },
+      cancelFrame: () => {},
+      onFreeze,
+    });
+    monitor.start();
+    return { monitor, frame: (ts: number) => cb!(ts) };
+  }
+
+  it('reports a gap at/above 700ms once, with its length', () => {
+    const onFreeze = jest.fn();
+    const { frame } = monitorWith(onFreeze);
+    frame(0);
+    frame(16);
+    frame(716);
+    frame(732);
+    frame(1400);
+    expect(onFreeze.mock.calls).toEqual([[700]]);
+  });
+
+  it('ignores the gap after resetFrameGap (app was backgrounded)', () => {
+    const onFreeze = jest.fn();
+    const { monitor, frame } = monitorWith(onFreeze);
+    frame(0);
+    monitor.resetFrameGap();
+    frame(5000);
+    frame(5016);
+    expect(onFreeze).not.toHaveBeenCalled();
+  });
+});

@@ -87,7 +87,7 @@ function ScreenDetail({
         label="FPS avg"
         value={
           profile.fps.average > 0
-            ? `${profile.fps.average}${profile.fps.drops ? ` · ${profile.fps.drops} drop` : ''}`
+            ? `${profile.fps.average}${profile.fps.drops ? ` · ${profile.fps.drops} drop` : ''}${profile.fps.frozen ? ` · ${profile.fps.frozen} frozen` : ''}`
             : 'n/a'
         }
       />
