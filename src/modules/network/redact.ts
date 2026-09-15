@@ -2,54 +2,82 @@ export const REDACTED = '[redacted]';
 export const TRUNCATED_SUFFIX = '…[truncated]';
 export const DEFAULT_MAX_BODY_BYTES = 32 * 1024;
 
-/** Matched as a substring, so `access_token` is caught by `token`. */
-const SECRET_KEY_PATTERNS = [
+/**
+ * Exact (normalised) key names that always hold a secret. Substring matching
+ * was tried first and over-redacted: `pin` hit `shipping`, `auth` hit
+ * `author`, `refresh` hit `refreshedAt`.
+ */
+const SECRET_KEYS = new Set([
   'password',
   'passwd',
+  'pwd',
+  'secret',
+  'token',
+  'accesstoken',
+  'refreshtoken',
+  'idtoken',
+  'apikey',
+  'authorization',
+  'proxyauthorization',
+  'auth',
+  'credential',
+  'credentials',
+  'sessionid',
+  'sessiontoken',
+  'cookie',
+  'setcookie',
+  'signature',
+  'privatekey',
+  'clientsecret',
+  'csrf',
+  'csrftoken',
+  'xsrf',
+  'xsrftoken',
+  'otp',
+  'cvv',
+  'cvc',
+  'cardnumber',
+  'pan',
+  'pin',
+  'pincode',
+]);
+
+/**
+ * Compound names ending in one of these are secrets too (`userPassword`,
+ * `x-api-key`, `authToken`), while `tokenExpiry` or `passwordRules` are not.
+ */
+const SECRET_SUFFIXES = [
+  'password',
   'secret',
   'token',
   'apikey',
-  'api_key',
-  'authorization',
-  'auth',
-  'credential',
-  'session',
   'cookie',
   'signature',
   'privatekey',
-  'private_key',
-  'refresh',
-  'otp',
-  'pin',
-  'cvv',
-  'cardnumber',
-  'card_number',
+  'credential',
+  'credentials',
 ];
 
-/** Matched whole, so `keyword` isn't caught by `key`. */
-const SECRET_QUERY_PATTERNS = [
-  'token',
-  'access_token',
-  'refresh_token',
-  'apikey',
-  'api_key',
-  'key',
-  'password',
-  'secret',
-  'signature',
-  'sig',
-  'auth',
-];
+/** Extra names that only mean a secret in a query string (`?key=`, `?sig=`). */
+const SECRET_QUERY_KEYS = new Set(['key', 'sig']);
 
 function normalizeKey(key: string): string {
-  return key.toLowerCase().replace(/[-_\s]/g, '');
+  return key.toLowerCase().replace(/[-_\s.]/g, '');
 }
 
 export function isSecretKey(key: string): boolean {
   const normalized = normalizeKey(key);
-  return SECRET_KEY_PATTERNS.some((pattern) =>
-    normalized.includes(normalizeKey(pattern)),
+  return (
+    SECRET_KEYS.has(normalized) ||
+    SECRET_SUFFIXES.some(
+      (suffix) =>
+        normalized.length > suffix.length && normalized.endsWith(suffix),
+    )
   );
+}
+
+function isSecretQueryKey(key: string): boolean {
+  return SECRET_QUERY_KEYS.has(normalizeKey(key)) || isSecretKey(key);
 }
 
 /** Deep-copy `value`, replacing secret keys' values with {@link REDACTED}. */
@@ -82,6 +110,15 @@ export function redactValue(
   return out;
 }
 
+/** A malformed escape (`%E0%A4%A`) must not throw out of the capture path. */
+function safeDecode(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
 export function redactUrl(url: string): string {
   const queryStart = url.indexOf('?');
   if (queryStart === -1) {
@@ -102,11 +139,7 @@ export function redactUrl(url: string): string {
         return pair;
       }
       const name = pair.slice(0, eq);
-      const normalized = normalizeKey(decodeURIComponent(name));
-      const secret = SECRET_QUERY_PATTERNS.some(
-        (pattern) => normalized === normalizeKey(pattern),
-      );
-      return secret ? `${name}=${REDACTED}` : pair;
+      return isSecretQueryKey(safeDecode(name)) ? `${name}=${REDACTED}` : pair;
     })
     .join('&');
 
@@ -130,9 +163,7 @@ function redactFormBody(text: string): string {
         return pair;
       }
       const name = pair.slice(0, eq);
-      return isSecretKey(decodeURIComponent(name))
-        ? `${name}=${REDACTED}`
-        : pair;
+      return isSecretKey(safeDecode(name)) ? `${name}=${REDACTED}` : pair;
     })
     .join('&');
 }
