@@ -174,7 +174,19 @@ describe('native network capture', () => {
 
     expect(provider.startNetworkCapture).toHaveBeenCalledWith(
       expect.any(Function),
-      false,
+      { captureBodies: false, maxBodyBytes: 32 * 1024 },
+    );
+  });
+
+  it('forwards a custom body cap to the native side', () => {
+    const provider = makeProvider();
+    AppInspector.setNativeMetricsProvider(provider);
+    AppInspector.configure({ network: { maxBodyBytes: 1024 } });
+    AppInspector.start();
+
+    expect(provider.startNetworkCapture).toHaveBeenCalledWith(
+      expect.any(Function),
+      { captureBodies: true, maxBodyBytes: 1024 },
     );
   });
 });

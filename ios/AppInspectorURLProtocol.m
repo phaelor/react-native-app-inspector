@@ -4,10 +4,10 @@
 
 static NSString *const kHandledKey = @"AppInspectorURLProtocolHandled";
 
-static const NSUInteger kMaxBodyBytes = 32 * 1024;
 
 static BOOL sEnabled = NO;
 static BOOL sCaptureBodies = YES;
+static NSUInteger sMaxBodyBytes = 32 * 1024;
 static AppInspectorNetworkHandler sHandler = nil;
 
 @interface AppInspectorURLProtocol ()
@@ -17,6 +17,7 @@ static AppInspectorNetworkHandler sHandler = nil;
 @property(nonatomic, assign) BOOL redirected;
 @property(nonatomic, strong) NSMutableData *responseData;
 @property(nonatomic, assign) BOOL responseIsText;
+@property(nonatomic, strong) NSData *requestBody;
 - (void)didReceiveResponse:(NSURLResponse *)response;
 - (void)didLoadData:(NSData *)data;
 - (void)wasRedirectedToRequest:(NSURLRequest *)request
@@ -188,6 +189,12 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   }
 }
 
++ (void)setMaxBodyBytes:(NSUInteger)maxBodyBytes {
+  @synchronized(self) {
+    sMaxBodyBytes = maxBodyBytes;
+  }
+}
+
 + (void)setEventHandler:(nullable AppInspectorNetworkHandler)handler {
   @synchronized(self) {
     sHandler = [handler copy];
@@ -219,9 +226,42 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   return request;
 }
 
+// NSURLSession hands a URLProtocol the body only as `HTTPBodyStream` (even
+// when the caller set `HTTPBody`), and a stream can be read once. Drain it
+// here, keep a capped copy for the log, and give the real task the bytes as
+// `HTTPBody` so the upload itself is unaffected.
+- (void)captureRequestBodyInto:(NSMutableURLRequest *)request {
+  self.requestBody = nil;
+  if (request.HTTPBody) {
+    self.requestBody = request.HTTPBody;
+    return;
+  }
+  NSInputStream *stream = request.HTTPBodyStream;
+  if (!stream) {
+    return;
+  }
+  NSMutableData *data = [NSMutableData data];
+  uint8_t buffer[16 * 1024];
+  [stream open];
+  while (stream.hasBytesAvailable) {
+    NSInteger read = [stream read:buffer maxLength:sizeof(buffer)];
+    if (read <= 0) {
+      break;
+    }
+    [data appendBytes:buffer length:(NSUInteger)read];
+  }
+  [stream close];
+  request.HTTPBodyStream = nil;
+  request.HTTPBody = data;
+  self.requestBody = data;
+}
+
 - (void)startLoading {
   NSMutableURLRequest *request = [self.request mutableCopy];
   [NSURLProtocol setProperty:@YES forKey:kHandledKey inRequest:request];
+  if (sCaptureBodies) {
+    [self captureRequestBodyInto:request];
+  }
   self.startedAtMs = [[NSDate date] timeIntervalSince1970] * 1000.0;
   self.statusCode = 0;
   self.redirected = NO;
@@ -239,34 +279,12 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   }
 }
 
-- (NSData *)requestBodyData {
-  if (self.request.HTTPBody) {
-    return self.request.HTTPBody;
-  }
-  NSInputStream *stream = self.request.HTTPBodyStream;
-  if (!stream) {
-    return nil;
-  }
-  NSMutableData *data = [NSMutableData data];
-  uint8_t buffer[4096];
-  [stream open];
-  while (stream.hasBytesAvailable && data.length < kMaxBodyBytes) {
-    NSInteger read = [stream read:buffer maxLength:sizeof(buffer)];
-    if (read <= 0) {
-      break;
-    }
-    [data appendBytes:buffer length:(NSUInteger)read];
-  }
-  [stream close];
-  return data.length > 0 ? data : nil;
-}
-
 - (NSString *)textFromData:(NSData *)data {
   if (data.length == 0) {
     return nil;
   }
-  NSData *capped = data.length > kMaxBodyBytes
-                       ? [data subdataWithRange:NSMakeRange(0, kMaxBodyBytes)]
+  NSData *capped = data.length > sMaxBodyBytes
+                       ? [data subdataWithRange:NSMakeRange(0, sMaxBodyBytes)]
                        : data;
   return [[NSString alloc] initWithData:capped encoding:NSUTF8StringEncoding];
 }
@@ -281,7 +299,7 @@ static void AppInspectorInstallProtocolClassesHook(void) {
       @([[NSDate date] timeIntervalSince1970] * 1000.0 - self.startedAtMs);
 
   if (sCaptureBodies) {
-    NSString *requestBody = [self textFromData:[self requestBodyData]];
+    NSString *requestBody = [self textFromData:self.requestBody];
     if (requestBody) {
       entry[@"requestBody"] = requestBody;
     }
@@ -324,7 +342,7 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   if (self.redirected) {
     return;
   }
-  if (self.responseData && self.responseData.length < kMaxBodyBytes) {
+  if (self.responseData && self.responseData.length < sMaxBodyBytes) {
     [self.responseData appendData:data];
   }
   [self.client URLProtocol:self didLoadData:data];

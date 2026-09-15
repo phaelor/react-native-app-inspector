@@ -82,7 +82,7 @@ export interface NativeMetricsProvider {
   /** Begin native capture; `onEntry` fires once per completed request. */
   startNetworkCapture?(
     onEntry: (event: NativeNetworkEvent) => void,
-    captureBodies?: boolean,
+    options?: NetworkCaptureOptions,
   ): void;
   stopNetworkCapture?(): void;
 }
@@ -279,7 +279,7 @@ class AppInspectorController {
               requestBody: sanitizeBody(event.requestBody, maxBodyBytes),
               responseBody: sanitizeBody(event.responseBody, maxBodyBytes),
             }),
-          captureBodies,
+          { captureBodies, maxBodyBytes },
         );
       } else {
         this.networkLogger = new NetworkLogger({
