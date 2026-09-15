@@ -171,9 +171,11 @@ RCT_EXPORT_METHOD(watchNextFrame : (RCTPromiseResolveBlock)resolve
   }
 }
 
-RCT_EXPORT_METHOD(startNetworkCapture : (BOOL)captureBodies) {
+RCT_EXPORT_METHOD(startNetworkCapture : (BOOL)captureBodies
+                  maxBodyBytes : (double)maxBodyBytes) {
   [NSURLProtocol registerClass:[AppInspectorURLProtocol class]];
   [AppInspectorURLProtocol setCaptureBodies:captureBodies];
+  [AppInspectorURLProtocol setMaxBodyBytes:(NSUInteger)MAX(0, maxBodyBytes)];
   [AppInspectorURLProtocol setEnabled:YES];
   __weak AppInspector *weakSelf = self;
   [AppInspectorURLProtocol setEventHandler:^(NSDictionary *entry) {

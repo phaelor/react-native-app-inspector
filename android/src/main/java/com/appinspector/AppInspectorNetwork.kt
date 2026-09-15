@@ -23,10 +23,10 @@ data class CapturedCall(
  * enabled from JS.
  */
 object AppInspectorNetwork {
-  const val MAX_BODY_BYTES = 32L * 1024L
 
   @Volatile var enabled = false
   @Volatile var captureBodies = true
+  @Volatile var maxBodyBytes = 32L * 1024L
   @Volatile var listener: ((CapturedCall) -> Unit)? = null
 
   /** True once the interceptor is wired into RN's client; JS falls back to the XHR patch otherwise. */
@@ -94,7 +94,7 @@ object AppInspectorNetwork {
         val buffer = Buffer()
         body.writeTo(buffer)
         if (!buffer.isProbablyUtf8()) return "[binary]"
-        buffer.readUtf8(minOf(buffer.size, MAX_BODY_BYTES))
+        buffer.readUtf8(minOf(buffer.size, maxBodyBytes))
       } catch (e: Exception) {
         null
       }
@@ -102,7 +102,7 @@ object AppInspectorNetwork {
 
     private fun readResponseBody(response: Response): String? =
       try {
-        val peeked = response.peekBody(MAX_BODY_BYTES)
+        val peeked = response.peekBody(maxBodyBytes)
         val buffer = Buffer().apply { write(peeked.bytes()) }
         if (!buffer.isProbablyUtf8()) "[binary]" else buffer.readUtf8()
       } catch (e: Exception) {
