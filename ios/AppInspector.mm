@@ -22,6 +22,23 @@ RCT_EXPORT_MODULE(AppInspector)
   return YES;
 }
 
+// Mirrors Android's constant; NSURLProtocol capture has no install step
+// that can fail, so it is always available here.
+- (NSDictionary *)constantsToExport {
+  return @{@"networkCaptureAvailable" : @YES};
+}
+
+- (NSDictionary *)getConstants {
+  return [self constantsToExport];
+}
+
+#ifdef RCT_NEW_ARCH_ENABLED
+- (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
+    (const facebook::react::ObjCTurboModule::InitParams &)params {
+  return std::make_shared<facebook::react::NativeAppInspectorSpecJSI>(params);
+}
+#endif
+
 - (NSArray<NSString *> *)supportedEvents {
   return @[ @"AppInspectorMetrics", @"AppInspectorNetwork" ];
 }
@@ -129,7 +146,7 @@ static const NSTimeInterval kWatchFrameTimeoutSec = 3.0;
 // timestamps) of the next frame; -1 when none is presented in time (e.g. the
 // app got backgrounded and the display link paused).
 RCT_EXPORT_METHOD(watchNextFrame : (RCTPromiseResolveBlock)resolve
-                  rejecter : (RCTPromiseRejectBlock)reject) {
+                  reject : (RCTPromiseRejectBlock)reject) {
   RCTPromiseResolveBlock resolver = [resolve copy];
   dispatch_async(dispatch_get_main_queue(), ^{
     if (!self->_frameWatchResolvers) {
@@ -195,7 +212,7 @@ RCT_EXPORT_METHOD(stopNetworkCapture) {
 }
 
 RCT_EXPORT_METHOD(getProcessStartTime : (RCTPromiseResolveBlock)resolve
-                  rejecter : (RCTPromiseRejectBlock)reject) {
+                  reject : (RCTPromiseRejectBlock)reject) {
   struct kinfo_proc proc;
   size_t length = sizeof(proc);
   int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()};
