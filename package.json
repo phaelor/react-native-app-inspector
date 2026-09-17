@@ -91,6 +91,19 @@
     "ts-jest": "^29.2.5",
     "typescript": "^5.4.5"
   },
+  "codegenConfig": {
+    "name": "RNAppInspectorSpec",
+    "type": "modules",
+    "jsSrcsDir": "src/native",
+    "android": {
+      "javaPackageName": "com.appinspector"
+    },
+    "ios": {
+      "modulesProvider": {
+        "AppInspector": "AppInspector"
+      }
+    }
+  },
   "react-native-builder-bob": {
     "source": "src",
     "output": "lib",
