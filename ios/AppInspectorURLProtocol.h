@@ -1,5 +1,7 @@
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 typedef void (^AppInspectorNetworkHandler)(NSDictionary *entry);
 
 /**
@@ -17,3 +19,5 @@ typedef void (^AppInspectorNetworkHandler)(NSDictionary *entry);
 + (void)setEventHandler:(nullable AppInspectorNetworkHandler)handler;
 
 @end
+
+NS_ASSUME_NONNULL_END
