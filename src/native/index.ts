@@ -8,7 +8,7 @@ interface AppInspectorNativeModule {
   getProcessStartTime(): Promise<number>;
   watchNextFrame(): Promise<number>;
   /** Present from the version that ships the native network interceptor. */
-  startNetworkCapture?(): void;
+  startNetworkCapture?(captureBodies: boolean): void;
   stopNetworkCapture?(): void;
   /** Android: false when the OkHttp interceptor could not be installed. */
   networkCaptureAvailable?: boolean;
@@ -92,7 +92,10 @@ class NativeMetricsBridge implements NativeMetricsProvider {
     );
   }
 
-  startNetworkCapture(onEntry: (event: NativeNetworkEvent) => void): void {
+  startNetworkCapture(
+    onEntry: (event: NativeNetworkEvent) => void,
+    captureBodies = true,
+  ): void {
     if (!this.supportsNetworkCapture()) {
       return;
     }
@@ -101,7 +104,7 @@ class NativeMetricsBridge implements NativeMetricsProvider {
       NETWORK_EVENT_NAME,
       onEntry,
     );
-    nativeModule?.startNetworkCapture?.();
+    nativeModule?.startNetworkCapture?.(captureBodies);
   }
 
   stopNetworkCapture(): void {

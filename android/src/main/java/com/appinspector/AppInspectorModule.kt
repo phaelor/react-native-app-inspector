@@ -212,16 +212,19 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun startNetworkCapture() {
+  fun startNetworkCapture(captureBodies: Boolean) {
     AppInspectorNetwork.enabled = true
-    AppInspectorNetwork.listener = { method, url, status, startedAt, durationMs ->
+    AppInspectorNetwork.captureBodies = captureBodies
+    AppInspectorNetwork.listener = { call ->
       if (reactContext.hasActiveReactInstance()) {
         val map = Arguments.createMap()
-        map.putString("method", method)
-        map.putString("url", url)
-        map.putInt("status", status)
-        map.putDouble("startedAt", startedAt.toDouble())
-        map.putDouble("durationMs", durationMs.toDouble())
+        map.putString("method", call.method)
+        map.putString("url", call.url)
+        map.putInt("status", call.status)
+        map.putDouble("startedAt", call.startedAt.toDouble())
+        map.putDouble("durationMs", call.durationMs.toDouble())
+        call.requestBody?.let { map.putString("requestBody", it) }
+        call.responseBody?.let { map.putString("responseBody", it) }
         reactContext
           .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
           .emit("AppInspectorNetwork", map)

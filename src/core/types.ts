@@ -36,6 +36,12 @@ export interface ModuleFlags {
   taps?: boolean;
 }
 
+/** Tuning for network body capture (JS path only — native takes precedence). */
+export interface NetworkCaptureOptions {
+  captureBodies?: boolean;
+  maxBodyBytes?: number;
+}
+
 export interface StorageInspectorAdapter {
   /** Name shown in the tab's switcher, e.g. "AsyncStorage", "MMKV (user)". */
   name: string;
@@ -73,6 +79,7 @@ export interface AppInspectorConfig {
    * AsyncStorage does), a tab for it is derived automatically.
    */
   storages?: StorageInspectorAdapter[];
+  network?: NetworkCaptureOptions;
 }
 
 /** A single captured network request/response pair. */
@@ -144,6 +151,8 @@ export interface NativeNetworkEvent {
   /** Epoch milliseconds when the request started. */
   startedAt: number;
   durationMs: number;
+  requestBody?: string;
+  responseBody?: string;
 }
 
 /** Live metrics read from the native module. */

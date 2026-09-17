@@ -4,7 +4,10 @@
 
 static NSString *const kHandledKey = @"AppInspectorURLProtocolHandled";
 
+static const NSUInteger kMaxBodyBytes = 32 * 1024;
+
 static BOOL sEnabled = NO;
+static BOOL sCaptureBodies = YES;
 static AppInspectorNetworkHandler sHandler = nil;
 
 @interface AppInspectorURLProtocol ()
@@ -12,6 +15,8 @@ static AppInspectorNetworkHandler sHandler = nil;
 @property(nonatomic, assign) double startedAtMs;
 @property(nonatomic, assign) NSInteger statusCode;
 @property(nonatomic, assign) BOOL redirected;
+@property(nonatomic, strong) NSMutableData *responseData;
+@property(nonatomic, assign) BOOL responseIsText;
 - (void)didReceiveResponse:(NSURLResponse *)response;
 - (void)didLoadData:(NSData *)data;
 - (void)wasRedirectedToRequest:(NSURLRequest *)request
@@ -177,6 +182,12 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   }
 }
 
++ (void)setCaptureBodies:(BOOL)captureBodies {
+  @synchronized(self) {
+    sCaptureBodies = captureBodies;
+  }
+}
+
 + (void)setEventHandler:(nullable AppInspectorNetworkHandler)handler {
   @synchronized(self) {
     sHandler = [handler copy];
@@ -214,6 +225,8 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   self.startedAtMs = [[NSDate date] timeIntervalSince1970] * 1000.0;
   self.statusCode = 0;
   self.redirected = NO;
+  self.responseData = sCaptureBodies ? [NSMutableData data] : nil;
+  self.responseIsText = YES;
   self.task = [[AppInspectorSessionProxy shared] startTask:request
                                                 forProtocol:self];
 }
@@ -226,6 +239,38 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   }
 }
 
+- (NSData *)requestBodyData {
+  if (self.request.HTTPBody) {
+    return self.request.HTTPBody;
+  }
+  NSInputStream *stream = self.request.HTTPBodyStream;
+  if (!stream) {
+    return nil;
+  }
+  NSMutableData *data = [NSMutableData data];
+  uint8_t buffer[4096];
+  [stream open];
+  while (stream.hasBytesAvailable && data.length < kMaxBodyBytes) {
+    NSInteger read = [stream read:buffer maxLength:sizeof(buffer)];
+    if (read <= 0) {
+      break;
+    }
+    [data appendBytes:buffer length:(NSUInteger)read];
+  }
+  [stream close];
+  return data.length > 0 ? data : nil;
+}
+
+- (NSString *)textFromData:(NSData *)data {
+  if (data.length == 0) {
+    return nil;
+  }
+  NSData *capped = data.length > kMaxBodyBytes
+                       ? [data subdataWithRange:NSMakeRange(0, kMaxBodyBytes)]
+                       : data;
+  return [[NSString alloc] initWithData:capped encoding:NSUTF8StringEncoding];
+}
+
 - (void)reportCompletion {
   NSMutableDictionary *entry = [NSMutableDictionary new];
   entry[@"method"] = self.request.HTTPMethod ?: @"GET";
@@ -234,6 +279,21 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   entry[@"startedAt"] = @(self.startedAtMs);
   entry[@"durationMs"] =
       @([[NSDate date] timeIntervalSince1970] * 1000.0 - self.startedAtMs);
+
+  if (sCaptureBodies) {
+    NSString *requestBody = [self textFromData:[self requestBodyData]];
+    if (requestBody) {
+      entry[@"requestBody"] = requestBody;
+    }
+    if (!self.responseIsText) {
+      entry[@"responseBody"] = @"[binary]";
+    } else {
+      NSString *responseBody = [self textFromData:self.responseData];
+      if (responseBody) {
+        entry[@"responseBody"] = responseBody;
+      }
+    }
+  }
   [AppInspectorURLProtocol report:entry];
 }
 
@@ -246,6 +306,15 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
     self.statusCode = ((NSHTTPURLResponse *)response).statusCode;
   }
+  NSString *type = response.MIMEType.lowercaseString;
+  if (type && !([type hasPrefix:@"text/"] ||
+                [type containsString:@"json"] ||
+                [type containsString:@"xml"] ||
+                [type containsString:@"javascript"] ||
+                [type containsString:@"x-www-form-urlencoded"])) {
+    self.responseIsText = NO;
+    self.responseData = nil;
+  }
   [self.client URLProtocol:self
         didReceiveResponse:response
           cacheStoragePolicy:NSURLCacheStorageNotAllowed];
@@ -254,6 +323,9 @@ static void AppInspectorInstallProtocolClassesHook(void) {
 - (void)didLoadData:(NSData *)data {
   if (self.redirected) {
     return;
+  }
+  if (self.responseData && self.responseData.length < kMaxBodyBytes) {
+    [self.responseData appendData:data];
   }
   [self.client URLProtocol:self didLoadData:data];
 }

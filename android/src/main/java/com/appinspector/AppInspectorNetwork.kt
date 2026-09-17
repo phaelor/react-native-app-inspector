@@ -3,7 +3,19 @@ package com.appinspector
 import com.facebook.react.modules.network.OkHttpClientFactory
 import com.facebook.react.modules.network.OkHttpClientProvider
 import okhttp3.Interceptor
+import okhttp3.Request
 import okhttp3.Response
+import okio.Buffer
+
+data class CapturedCall(
+  val method: String,
+  val url: String,
+  val status: Int,
+  val startedAt: Long,
+  val durationMs: Long,
+  val requestBody: String?,
+  val responseBody: String?,
+)
 
 /**
  * OkHttp interceptor installed into RN's client factory at package
@@ -11,11 +23,11 @@ import okhttp3.Response
  * enabled from JS.
  */
 object AppInspectorNetwork {
+  const val MAX_BODY_BYTES = 32L * 1024L
+
   @Volatile var enabled = false
-  @Volatile
-  var listener:
-    ((method: String, url: String, status: Int, startedAt: Long, durationMs: Long) -> Unit)? =
-    null
+  @Volatile var captureBodies = true
+  @Volatile var listener: ((CapturedCall) -> Unit)? = null
 
   /** True once the interceptor is wired into RN's client; JS falls back to the XHR patch otherwise. */
   @Volatile var installed = false
@@ -58,24 +70,81 @@ object AppInspectorNetwork {
       val request = chain.request()
       if (!enabled) return chain.proceed(request)
       val startedAt = System.currentTimeMillis()
+      val requestBody = if (captureBodies) readRequestBody(request) else null
       try {
         val response = chain.proceed(request)
-        report(request.method, request.url.toString(), response.code, startedAt)
+        report(
+          request,
+          response.code,
+          startedAt,
+          requestBody,
+          if (captureBodies) readResponseBody(response) else null,
+        )
         return response
       } catch (e: java.io.IOException) {
-        report(request.method, request.url.toString(), 0, startedAt)
+        report(request, 0, startedAt, requestBody, null)
         throw e
       }
     }
 
-    private fun report(method: String, url: String, status: Int, startedAt: Long) {
+    private fun readRequestBody(request: Request): String? {
+      val body = request.body ?: return null
+      if (body.isOneShot() || body.isDuplex()) return null
+      return try {
+        val buffer = Buffer()
+        body.writeTo(buffer)
+        if (!buffer.isProbablyUtf8()) return "[binary]"
+        buffer.readUtf8(minOf(buffer.size, MAX_BODY_BYTES))
+      } catch (e: Exception) {
+        null
+      }
+    }
+
+    private fun readResponseBody(response: Response): String? =
+      try {
+        val peeked = response.peekBody(MAX_BODY_BYTES)
+        val buffer = Buffer().apply { write(peeked.bytes()) }
+        if (!buffer.isProbablyUtf8()) "[binary]" else buffer.readUtf8()
+      } catch (e: Exception) {
+        null
+      }
+
+    private fun report(
+      request: Request,
+      status: Int,
+      startedAt: Long,
+      requestBody: String?,
+      responseBody: String?,
+    ) {
       listener?.invoke(
-        method,
-        url,
-        status,
-        startedAt,
-        System.currentTimeMillis() - startedAt,
+        CapturedCall(
+          method = request.method,
+          url = request.url.toString(),
+          status = status,
+          startedAt = startedAt,
+          durationMs = System.currentTimeMillis() - startedAt,
+          requestBody = requestBody,
+          responseBody = responseBody,
+        ),
       )
+    }
+  }
+
+  private fun Buffer.isProbablyUtf8(): Boolean {
+    return try {
+      val prefix = Buffer()
+      copyTo(prefix, 0, minOf(size, 64))
+      var checked = 0
+      while (checked < 16 && !prefix.exhausted()) {
+        val codePoint = prefix.readUtf8CodePoint()
+        if (Character.isISOControl(codePoint) && !Character.isWhitespace(codePoint)) {
+          return false
+        }
+        checked++
+      }
+      true
+    } catch (e: Exception) {
+      false
     }
   }
 }

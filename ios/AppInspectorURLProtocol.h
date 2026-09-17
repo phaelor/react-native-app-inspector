@@ -11,6 +11,7 @@ typedef void (^AppInspectorNetworkHandler)(NSDictionary *entry);
 @interface AppInspectorURLProtocol : NSURLProtocol
 
 + (void)setEnabled:(BOOL)enabled;
++ (void)setCaptureBodies:(BOOL)captureBodies;
 + (void)setEventHandler:(nullable AppInspectorNetworkHandler)handler;
 
 @end

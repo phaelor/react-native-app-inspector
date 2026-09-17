@@ -73,6 +73,17 @@ export class InspectorStore {
     this.emit();
   }
 
+  patchNetwork(id: string, patch: Partial<NetworkLogEntry>): void {
+    const index = this.state.network.findIndex((entry) => entry.id === id);
+    if (index === -1) {
+      return;
+    }
+    const network = this.state.network.slice();
+    network[index] = { ...network[index], ...patch } as NetworkLogEntry;
+    this.state = { ...this.state, network };
+    this.emit();
+  }
+
   pushAction(entry: ActionLogEntry): void {
     this.state = {
       ...this.state,
