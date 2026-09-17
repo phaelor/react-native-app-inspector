@@ -959,7 +959,7 @@ PODS:
   - React-Mapbuffer (0.74.5):
     - glog
     - React-debug
-  - react-native-app-inspector (0.1.0):
+  - react-native-app-inspector (0.2.2):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1454,7 +1454,7 @@ SPEC CHECKSUMS:
   React-jsitracing: f8367edacc50bb3f9f056a5aeafb8cee5849fafb
   React-logger: 780b9ee9cec7d44eabc4093de90107c379078cb6
   React-Mapbuffer: f544f00b98dbdd8cbae96dd2bdb8b47f719976e0
-  react-native-app-inspector: 08b9469e267fbbe15293cb7d012e4070cc80e5a2
+  react-native-app-inspector: 0271f4f353448a89ff6cb5c7459e1fa9fbf8e87b
   react-native-mmkv: f8155c2efbe795cb0c7586d00ff484b1c9388af0
   React-nativeconfig: ba9a2e54e2f0882cf7882698825052793ed4c851
   React-NativeModulesApple: 84aaad2b0e546d7b839837ca537f6e72804a4cad
@@ -1482,6 +1482,6 @@ SPEC CHECKSUMS:
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
   Yoga: 950bbfd7e6f04790fdb51149ed51df41f329fcc8
 
-PODFILE CHECKSUM: f8185ed3bf5738ea79e93c8565189de7ca699c30
+PODFILE CHECKSUM: f930fb91ca329479fd3509e46ef9694693336cf2
 
 COCOAPODS: 1.16.2
