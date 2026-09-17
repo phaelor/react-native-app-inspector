@@ -212,9 +212,10 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun startNetworkCapture(captureBodies: Boolean) {
+  fun startNetworkCapture(captureBodies: Boolean, maxBodyBytes: Double) {
     AppInspectorNetwork.enabled = true
     AppInspectorNetwork.captureBodies = captureBodies
+    AppInspectorNetwork.maxBodyBytes = maxBodyBytes.toLong().coerceAtLeast(0L)
     AppInspectorNetwork.listener = { call ->
       if (reactContext.hasActiveReactInstance()) {
         val map = Arguments.createMap()
