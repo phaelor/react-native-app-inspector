@@ -1,27 +1,12 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeEventEmitter } from 'react-native';
 import type { NativeMetricsProvider } from '../core';
-import { DEFAULT_MAX_BODY_BYTES } from '../modules/network/redact';
 import type {
   NativeMetrics,
   NativeNetworkEvent,
   NetworkCaptureOptions,
 } from '../core/types';
-
-interface AppInspectorNativeModule {
-  startMonitoring(intervalMs: number): void;
-  stopMonitoring(): void;
-  getProcessStartTime(): Promise<number>;
-  watchNextFrame(): Promise<number>;
-  /** Present from the version that ships the native network interceptor. */
-  startNetworkCapture?(
-    captureBodies: boolean,
-    maxBodyBytes: number,
-    captureHeaders: boolean,
-  ): void;
-  stopNetworkCapture?(): void;
-  /** Android: false when the OkHttp interceptor could not be installed. */
-  networkCaptureAvailable?: boolean;
-}
+import { DEFAULT_MAX_BODY_BYTES } from '../modules/network/redact';
+import NativeAppInspector, { type Spec } from './NativeAppInspector';
 
 const EVENT_NAME = 'AppInspectorMetrics';
 const NETWORK_EVENT_NAME = 'AppInspectorNetwork';
@@ -31,9 +16,7 @@ const LINKING_HINT =
   '(pod install / gradle) to enable UI-thread FPS and native memory. JS-thread ' +
   'FPS and heap still work without it.';
 
-const nativeModule = NativeModules.AppInspector as
-  | AppInspectorNativeModule
-  | undefined;
+const nativeModule: Spec | null = NativeAppInspector;
 
 /**
  * Bridges the native module's metric stream into the inspector. Works on both
@@ -53,7 +36,8 @@ class NativeMetricsBridge implements NativeMetricsProvider {
 
   private getEmitter(): NativeEventEmitter {
     if (!this.emitter) {
-      this.emitter = new NativeEventEmitter(NativeModules.AppInspector);
+      // iOS requires the module for RCTEventEmitter's listener bookkeeping.
+      this.emitter = new NativeEventEmitter(nativeModule ?? undefined);
     }
     return this.emitter;
   }
@@ -95,10 +79,16 @@ class NativeMetricsBridge implements NativeMetricsProvider {
   }
 
   supportsNetworkCapture(): boolean {
-    return (
-      typeof nativeModule?.startNetworkCapture === 'function' &&
-      nativeModule.networkCaptureAvailable !== false
-    );
+    if (typeof nativeModule?.startNetworkCapture !== 'function') {
+      return false;
+    }
+    // Legacy modules expose constants as properties, TurboModules only via
+    // getConstants(); older native builds ship neither.
+    const constants =
+      typeof nativeModule.getConstants === 'function'
+        ? nativeModule.getConstants()
+        : (nativeModule as unknown as { networkCaptureAvailable?: boolean });
+    return constants?.networkCaptureAvailable !== false;
   }
 
   startNetworkCapture(

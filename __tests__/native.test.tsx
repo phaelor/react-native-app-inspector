@@ -43,24 +43,73 @@ describe('NativeMetricsModule — network capture capability', () => {
     expect(NativeMetricsModule.supportsNetworkCapture()).toBe(false);
   });
 
-  it('honours networkCaptureAvailable=false from Android', () => {
+  const methods = () => ({
+    startMonitoring: jest.fn(),
+    stopMonitoring: jest.fn(),
+    getProcessStartTime: jest.fn(),
+    watchNextFrame: jest.fn(),
+    startNetworkCapture: jest.fn(),
+    stopNetworkCapture: jest.fn(),
+    addListener: jest.fn(),
+    removeListeners: jest.fn(),
+  });
+
+  /** Registers a fake module on the legacy bridge and loads a fresh bridge. */
+  function withLegacyModule<T>(
+    module: Record<string, unknown>,
+    run: (bridge: typeof NativeMetricsModule) => T,
+  ): T {
+    let result!: T;
     jest.isolateModules(() => {
       const rn =
         jest.requireActual<typeof import('react-native')>('react-native');
-      rn.NativeModules.AppInspector = {
-        startMonitoring: jest.fn(),
-        stopMonitoring: jest.fn(),
-        getProcessStartTime: jest.fn(),
-        watchNextFrame: jest.fn(),
-        startNetworkCapture: jest.fn(),
-        stopNetworkCapture: jest.fn(),
-        networkCaptureAvailable: false,
-      };
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { NativeMetricsModule: bridge } = require('../src/native');
-      expect(bridge.isAvailable()).toBe(true);
-      expect(bridge.supportsNetworkCapture()).toBe(false);
-      delete rn.NativeModules.AppInspector;
+      rn.NativeModules.AppInspector = module;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        result = run(require('../src/native').NativeMetricsModule);
+      } finally {
+        delete rn.NativeModules.AppInspector;
+      }
     });
+    return result;
+  }
+
+  it('honours networkCaptureAvailable=false exposed as a legacy constant', () => {
+    withLegacyModule({ ...methods(), networkCaptureAvailable: false }, (b) => {
+      expect(b.isAvailable()).toBe(true);
+      expect(b.supportsNetworkCapture()).toBe(false);
+    });
+  });
+
+  it('honours networkCaptureAvailable via getConstants() (TurboModule)', () => {
+    withLegacyModule(
+      {
+        ...methods(),
+        getConstants: () => ({ networkCaptureAvailable: false }),
+      },
+      (b) => expect(b.supportsNetworkCapture()).toBe(false),
+    );
+    withLegacyModule(
+      { ...methods(), getConstants: () => ({ networkCaptureAvailable: true }) },
+      (b) => expect(b.supportsNetworkCapture()).toBe(true),
+    );
+  });
+
+  it('assumes native capture is available when no constant is shipped', () => {
+    withLegacyModule(methods(), (b) =>
+      expect(b.supportsNetworkCapture()).toBe(true),
+    );
+  });
+
+  it('forwards capture options to the native startNetworkCapture', () => {
+    const module = methods();
+    withLegacyModule(module, (b) => {
+      b.startNetworkCapture(() => {}, {
+        captureBodies: false,
+        maxBodyBytes: 512,
+        captureHeaders: true,
+      });
+    });
+    expect(module.startNetworkCapture).toHaveBeenCalledWith(false, 512, true);
   });
 });
