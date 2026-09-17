@@ -45,6 +45,8 @@ const SECRET_KEYS = new Set([
 /**
  * Compound names ending in one of these are secrets too (`userPassword`,
  * `x-api-key`, `authToken`), while `tokenExpiry` or `passwordRules` are not.
+ * `credentials` is deliberately exact-only: `Access-Control-Allow-Credentials`
+ * is a plain CORS header.
  */
 const SECRET_SUFFIXES = [
   'password',
@@ -54,8 +56,6 @@ const SECRET_SUFFIXES = [
   'cookie',
   'signature',
   'privatekey',
-  'credential',
-  'credentials',
 ];
 
 /** Extra names that only mean a secret in a query string (`?key=`, `?sig=`). */
@@ -108,6 +108,23 @@ export function redactValue(
     out[key] = isSecretKey(key) ? REDACTED : redactValue(item, seen);
   }
   return out;
+}
+
+/** Copy of `headers` with secret values replaced; `undefined` when empty. */
+export function redactHeaders(
+  headers: Record<string, unknown> | null | undefined,
+): Record<string, string> | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    out[name] = isSecretKey(name) ? REDACTED : String(value);
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** A malformed escape (`%E0%A4%A`) must not throw out of the capture path. */

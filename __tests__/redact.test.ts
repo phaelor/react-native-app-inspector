@@ -1,5 +1,6 @@
 import {
   isSecretKey,
+  redactHeaders,
   redactUrl,
   redactValue,
   sanitizeBody,
@@ -43,6 +44,7 @@ describe('isSecretKey', () => {
     'pinned',
     'spinner',
     'keyword',
+    'Access-Control-Allow-Credentials',
     'name',
     'email',
     'expiresIn',
@@ -88,5 +90,34 @@ describe('sanitizeBody', () => {
     expect(sanitizeBody('user=bob&password=x&shipping=fast')).toBe(
       `user=bob&password=${REDACTED}&shipping=fast`,
     );
+  });
+});
+
+describe('redactHeaders', () => {
+  it('redacts auth-bearing headers and keeps the rest', () => {
+    expect(
+      redactHeaders({
+        Authorization: 'Bearer x',
+        Cookie: 'a=1',
+        'Set-Cookie': 'b=2',
+        'Proxy-Authorization': 'Basic y',
+        'x-api-key': 'k',
+        'Content-Type': 'application/json',
+        'X-Request-Id': 'r',
+      }),
+    ).toEqual({
+      Authorization: REDACTED,
+      Cookie: REDACTED,
+      'Set-Cookie': REDACTED,
+      'Proxy-Authorization': REDACTED,
+      'x-api-key': REDACTED,
+      'Content-Type': 'application/json',
+      'X-Request-Id': 'r',
+    });
+  });
+
+  it('returns undefined for missing or empty headers', () => {
+    expect(redactHeaders(undefined)).toBeUndefined();
+    expect(redactHeaders({})).toBeUndefined();
   });
 });

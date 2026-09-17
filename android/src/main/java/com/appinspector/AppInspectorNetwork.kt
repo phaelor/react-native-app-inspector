@@ -15,6 +15,8 @@ data class CapturedCall(
   val durationMs: Long,
   val requestBody: String?,
   val responseBody: String?,
+  val requestHeaders: Map<String, String>?,
+  val responseHeaders: Map<String, String>?,
 )
 
 /**
@@ -27,6 +29,7 @@ object AppInspectorNetwork {
   @Volatile var enabled = false
   @Volatile var captureBodies = true
   @Volatile var maxBodyBytes = 32L * 1024L
+  @Volatile var captureHeaders = true
   @Volatile var listener: ((CapturedCall) -> Unit)? = null
 
   /** True once the interceptor is wired into RN's client; JS falls back to the XHR patch otherwise. */
@@ -79,10 +82,11 @@ object AppInspectorNetwork {
           startedAt,
           requestBody,
           if (captureBodies) readResponseBody(response) else null,
+          if (captureHeaders) response.headers.toFlatMap() else null,
         )
         return response
       } catch (e: java.io.IOException) {
-        report(request, 0, startedAt, requestBody, null)
+        report(request, 0, startedAt, requestBody, null, null)
         throw e
       }
     }
@@ -115,6 +119,7 @@ object AppInspectorNetwork {
       startedAt: Long,
       requestBody: String?,
       responseBody: String?,
+      responseHeaders: Map<String, String>?,
     ) {
       listener?.invoke(
         CapturedCall(
@@ -125,10 +130,16 @@ object AppInspectorNetwork {
           durationMs = System.currentTimeMillis() - startedAt,
           requestBody = requestBody,
           responseBody = responseBody,
+          requestHeaders = if (captureHeaders) request.headers.toFlatMap() else null,
+          responseHeaders = responseHeaders,
         ),
       )
     }
   }
+
+  /** Repeated names (Set-Cookie) are comma-joined, like XHR's getAllResponseHeaders. */
+  private fun okhttp3.Headers.toFlatMap(): Map<String, String> =
+    toMultimap().mapValues { (_, values) -> values.joinToString(", ") }
 
   private fun Buffer.isProbablyUtf8(): Boolean {
     return try {

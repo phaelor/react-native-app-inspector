@@ -8,6 +8,7 @@ static NSString *const kHandledKey = @"AppInspectorURLProtocolHandled";
 static BOOL sEnabled = NO;
 static BOOL sCaptureBodies = YES;
 static NSUInteger sMaxBodyBytes = 32 * 1024;
+static BOOL sCaptureHeaders = YES;
 static AppInspectorNetworkHandler sHandler = nil;
 
 @interface AppInspectorURLProtocol ()
@@ -18,6 +19,8 @@ static AppInspectorNetworkHandler sHandler = nil;
 @property(nonatomic, strong) NSMutableData *responseData;
 @property(nonatomic, assign) BOOL responseIsText;
 @property(nonatomic, strong) NSData *requestBody;
+@property(nonatomic, copy) NSDictionary *requestHeaders;
+@property(nonatomic, copy) NSDictionary *responseHeaders;
 - (void)didReceiveResponse:(NSURLResponse *)response;
 - (void)didLoadData:(NSData *)data;
 - (void)wasRedirectedToRequest:(NSURLRequest *)request
@@ -195,6 +198,12 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   }
 }
 
++ (void)setCaptureHeaders:(BOOL)captureHeaders {
+  @synchronized(self) {
+    sCaptureHeaders = captureHeaders;
+  }
+}
+
 + (void)setEventHandler:(nullable AppInspectorNetworkHandler)handler {
   @synchronized(self) {
     sHandler = [handler copy];
@@ -262,6 +271,8 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   if (sCaptureBodies) {
     [self captureRequestBodyInto:request];
   }
+  self.requestHeaders = sCaptureHeaders ? request.allHTTPHeaderFields : nil;
+  self.responseHeaders = nil;
   self.startedAtMs = [[NSDate date] timeIntervalSince1970] * 1000.0;
   self.statusCode = 0;
   self.redirected = NO;
@@ -298,6 +309,12 @@ static void AppInspectorInstallProtocolClassesHook(void) {
   entry[@"durationMs"] =
       @([[NSDate date] timeIntervalSince1970] * 1000.0 - self.startedAtMs);
 
+  if (self.requestHeaders.count > 0) {
+    entry[@"requestHeaders"] = self.requestHeaders;
+  }
+  if (self.responseHeaders.count > 0) {
+    entry[@"responseHeaders"] = self.responseHeaders;
+  }
   if (sCaptureBodies) {
     NSString *requestBody = [self textFromData:self.requestBody];
     if (requestBody) {
@@ -322,7 +339,11 @@ static void AppInspectorInstallProtocolClassesHook(void) {
     return;
   }
   if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
-    self.statusCode = ((NSHTTPURLResponse *)response).statusCode;
+    NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+    self.statusCode = http.statusCode;
+    if (sCaptureHeaders) {
+      self.responseHeaders = http.allHeaderFields;
+    }
   }
   NSString *type = response.MIMEType.lowercaseString;
   if (type && !([type hasPrefix:@"text/"] ||

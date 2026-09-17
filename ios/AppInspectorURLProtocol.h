@@ -13,6 +13,7 @@ typedef void (^AppInspectorNetworkHandler)(NSDictionary *entry);
 + (void)setEnabled:(BOOL)enabled;
 + (void)setCaptureBodies:(BOOL)captureBodies;
 + (void)setMaxBodyBytes:(NSUInteger)maxBodyBytes;
++ (void)setCaptureHeaders:(BOOL)captureHeaders;
 + (void)setEventHandler:(nullable AppInspectorNetworkHandler)handler;
 
 @end

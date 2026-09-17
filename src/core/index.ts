@@ -19,6 +19,7 @@ import { Timeline, type NetworkEventInput } from '../modules/timeline';
 import { NetworkLogger } from '../modules/network';
 import {
   DEFAULT_MAX_BODY_BYTES,
+  redactHeaders,
   redactUrl,
   sanitizeBody,
 } from '../modules/network/redact';
@@ -107,6 +108,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
   network: {
     captureBodies: true,
     maxBodyBytes: DEFAULT_MAX_BODY_BYTES,
+    captureHeaders: true,
   },
 };
 
@@ -266,7 +268,8 @@ class AppInspectorController {
 
     if (this.config.modules.network) {
       if (this.nativeMetrics?.supportsNetworkCapture?.()) {
-        const { captureBodies, maxBodyBytes } = this.config.network;
+        const { captureBodies, maxBodyBytes, captureHeaders } =
+          this.config.network;
         this.nativeMetrics?.startNetworkCapture?.(
           (event) =>
             this.recordNetwork({
@@ -278,8 +281,14 @@ class AppInspectorController {
               durationMs: event.durationMs,
               requestBody: sanitizeBody(event.requestBody, maxBodyBytes),
               responseBody: sanitizeBody(event.responseBody, maxBodyBytes),
+              requestHeaders: captureHeaders
+                ? redactHeaders(event.requestHeaders)
+                : undefined,
+              responseHeaders: captureHeaders
+                ? redactHeaders(event.responseHeaders)
+                : undefined,
             }),
-          { captureBodies, maxBodyBytes },
+          { captureBodies, maxBodyBytes, captureHeaders },
         );
       } else {
         this.networkLogger = new NetworkLogger({
@@ -288,6 +297,7 @@ class AppInspectorController {
             this.store.patchNetwork(id, { responseBody }),
           captureBodies: this.config.network.captureBodies,
           maxBodyBytes: this.config.network.maxBodyBytes,
+          captureHeaders: this.config.network.captureHeaders,
         });
         this.networkLogger.start();
       }
