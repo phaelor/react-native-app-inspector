@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { AppInspector } from '../core';
 import type { AppInspectorConfig } from '../core/types';
@@ -87,6 +88,18 @@ export function InspectorRoot({
     AppInspector.configure(config);
     AppInspector.start();
     return () => AppInspector.stop();
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        AppInspector.notifyAppActive();
+      }
+    });
+    return () => sub.remove();
   }, [enabled]);
 
   useEffect(() => {

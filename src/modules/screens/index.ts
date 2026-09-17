@@ -35,6 +35,7 @@ interface Accum {
   fpsSum: number;
   fpsCount: number;
   fpsDrops: number;
+  frozen: number;
   jank: number;
   awaitingStartMem: boolean;
   startMemMb?: number;
@@ -148,6 +149,15 @@ export class ScreenMonitor {
     }
   }
 
+  /** Record a frozen frame on the active screen. */
+  recordFreeze(): void {
+    const a = this.activeAccum();
+    if (a) {
+      a.frozen += 1;
+      this.emit();
+    }
+  }
+
   /** Record a completed network request on the active screen. */
   recordNetwork(url: string, durationMs: number): void {
     const a = this.activeAccum();
@@ -221,6 +231,14 @@ export class ScreenMonitor {
         kind: 'load',
         severity: 'error',
         label: `Slow to open — ${load}ms`,
+      });
+    }
+    if (a.frozen > 0) {
+      score -= 20;
+      problems.push({
+        kind: 'fps',
+        severity: 'error',
+        label: `${a.frozen} frozen frame(s)`,
       });
     }
     if (a.fpsCount > 0 && avgFps < this.o.lowFps) {
@@ -298,7 +316,12 @@ export class ScreenMonitor {
         worstMs: a.worstRenderMs,
         worstId: a.worstRenderId,
       },
-      fps: { average: avgFps, drops: a.fpsDrops, jank: a.jank },
+      fps: {
+        average: avgFps,
+        drops: a.fpsDrops,
+        jank: a.jank,
+        frozen: a.frozen,
+      },
       memory: { startMb: a.startMemMb, peakMb: a.peakMemMb, increaseMb },
       network: {
         requests: a.netRequests,
@@ -335,6 +358,7 @@ export class ScreenMonitor {
         fpsSum: 0,
         fpsCount: 0,
         fpsDrops: 0,
+        frozen: 0,
         jank: 0,
         awaitingStartMem: false,
         netRequests: 0,

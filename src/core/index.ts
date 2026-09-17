@@ -295,6 +295,7 @@ class AppInspectorController {
         maxSamples: this.config.maxEntries,
         readNative: useNative && native ? () => native.getLatest() : undefined,
         onSample: (sample) => this.handlePerfSample(sample),
+        onFreeze: (stallMs) => this.handleFreeze(stallMs),
       });
       this.perf.start();
     }
@@ -333,6 +334,22 @@ class AppInspectorController {
       }
     }
     this.lastSample = sample;
+  }
+
+  private handleFreeze(stallMs: number): void {
+    this.timeline.trackFreeze(stallMs);
+    if (this.config.modules.slowScreens) {
+      this.screenMonitor.recordFreeze();
+    }
+  }
+
+  /**
+   * Tell the monitor the app just returned to the foreground, so the frame gap
+   * spent in the background is not reported as a freeze. `InspectorRoot` does
+   * this via AppState.
+   */
+  notifyAppActive(): void {
+    this.perf?.resetFrameGap();
   }
 
   /** Stop all capture modules. Retains captured data (use {@link clear}). */

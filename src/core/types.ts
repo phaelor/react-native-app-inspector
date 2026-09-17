@@ -230,6 +230,8 @@ export interface ScreenProfile {
     average: number;
     drops: number;
     jank: number;
+    /** Frozen frames (JS thread stalled ≥700ms). */
+    frozen: number;
   };
   memory: {
     startMb?: number;
