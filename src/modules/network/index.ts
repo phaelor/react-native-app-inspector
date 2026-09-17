@@ -1,5 +1,10 @@
 import type { NetworkLogEntry } from '../../core/types';
-import { DEFAULT_MAX_BODY_BYTES, redactUrl, sanitizeBody } from './redact';
+import {
+  DEFAULT_MAX_BODY_BYTES,
+  redactHeaders,
+  redactUrl,
+  sanitizeBody,
+} from './redact';
 
 export interface NetworkLoggerOptions {
   /** Called once per completed request (success or failure). */
@@ -7,6 +12,7 @@ export interface NetworkLoggerOptions {
   onLateBody?: (id: string, responseBody: unknown) => void;
   captureBodies?: boolean;
   maxBodyBytes?: number;
+  captureHeaders?: boolean;
 }
 
 interface XhrMeta {
@@ -14,6 +20,22 @@ interface XhrMeta {
   url: string;
   startedAt: number;
   requestBody?: unknown;
+  requestHeaders?: Record<string, string>;
+}
+
+/** `getAllResponseHeaders()` → object; repeated names are comma-joined. */
+function parseResponseHeaders(raw: string | null): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const line of (raw ?? '').split(/\r?\n/)) {
+    const colon = line.indexOf(':');
+    if (colon <= 0) {
+      continue;
+    }
+    const name = line.slice(0, colon).trim();
+    const value = line.slice(colon + 1).trim();
+    headers[name] = name in headers ? `${headers[name]}, ${value}` : value;
+  }
+  return headers;
 }
 
 /** A blob body, readable only asynchronously via FileReader. */
@@ -43,6 +65,14 @@ function readResponseBody(xhr: XMLHttpRequest): unknown | PendingBlob {
     return type === 'json' ? xhr.response : xhr.responseText;
   } catch {
     return undefined;
+  }
+}
+
+function readResponseHeaders(xhr: XMLHttpRequest): Record<string, string> {
+  try {
+    return parseResponseHeaders(xhr.getAllResponseHeaders());
+  } catch {
+    return {};
   }
 }
 
@@ -88,15 +118,19 @@ export class NetworkLogger {
   private readonly onLateBody?: (id: string, responseBody: unknown) => void;
   private readonly captureBodies: boolean;
   private readonly maxBodyBytes: number;
+  private readonly captureHeaders: boolean;
   private running = false;
   private originalOpen: XMLHttpRequest['open'] | null = null;
   private originalSend: XMLHttpRequest['send'] | null = null;
+  private originalSetRequestHeader: XMLHttpRequest['setRequestHeader'] | null =
+    null;
 
   constructor(options: NetworkLoggerOptions) {
     this.onEntry = options.onEntry;
     this.onLateBody = options.onLateBody;
     this.captureBodies = options.captureBodies ?? true;
     this.maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
+    this.captureHeaders = options.captureHeaders ?? true;
   }
 
   /** Patch `XMLHttpRequest` and begin recording. Idempotent. */
@@ -116,10 +150,13 @@ export class NetworkLogger {
     const onLateBody = this.onLateBody;
     const captureBodies = this.captureBodies;
     const maxBodyBytes = this.maxBodyBytes;
+    const captureHeaders = this.captureHeaders;
     this.originalOpen = proto.open;
     this.originalSend = proto.send;
+    this.originalSetRequestHeader = proto.setRequestHeader;
     const originalOpen = proto.open;
     const originalSend = proto.send;
+    const originalSetRequestHeader = proto.setRequestHeader;
 
     proto.open = function patchedOpen(
       this: PatchableXhr,
@@ -134,6 +171,25 @@ export class NetworkLogger {
       };
       return Reflect.apply(originalOpen, this, [method, url, ...rest]);
     } as XMLHttpRequest['open'];
+
+    if (captureHeaders && typeof originalSetRequestHeader === 'function') {
+      proto.setRequestHeader = function patchedSetRequestHeader(
+        this: PatchableXhr,
+        name: string,
+        value: string,
+      ) {
+        const meta = this.__inspector;
+        if (meta) {
+          const headers = meta.requestHeaders ?? {};
+          headers[name] =
+            name in headers ? `${headers[name]}, ${value}` : value;
+          meta.requestHeaders = headers;
+        }
+        return Reflect.apply(originalSetRequestHeader, this, [name, value]);
+      } as XMLHttpRequest['setRequestHeader'];
+    } else {
+      this.originalSetRequestHeader = null;
+    }
 
     proto.send = function patchedSend(this: PatchableXhr, body?: unknown) {
       const meta = this.__inspector;
@@ -156,6 +212,12 @@ export class NetworkLogger {
             durationMs: Date.now() - meta.startedAt,
             requestBody: meta.requestBody,
             responseBody: pending ? undefined : sanitizeBody(raw, maxBodyBytes),
+            requestHeaders: captureHeaders
+              ? redactHeaders(meta.requestHeaders)
+              : undefined,
+            responseHeaders: captureHeaders
+              ? redactHeaders(readResponseHeaders(this))
+              : undefined,
           });
 
           if (pending && onLateBody) {
@@ -183,9 +245,13 @@ export class NetworkLogger {
     if (Xhr && this.originalOpen && this.originalSend) {
       Xhr.prototype.open = this.originalOpen;
       Xhr.prototype.send = this.originalSend;
+      if (this.originalSetRequestHeader) {
+        Xhr.prototype.setRequestHeader = this.originalSetRequestHeader;
+      }
     }
     this.originalOpen = null;
     this.originalSend = null;
+    this.originalSetRequestHeader = null;
     this.running = false;
   }
 

@@ -40,6 +40,8 @@ export interface ModuleFlags {
 export interface NetworkCaptureOptions {
   captureBodies?: boolean;
   maxBodyBytes?: number;
+  /** Capture request/response headers (secret ones are redacted). Default true. */
+  captureHeaders?: boolean;
 }
 
 export interface StorageInspectorAdapter {
@@ -93,6 +95,8 @@ export interface NetworkLogEntry {
   durationMs?: number;
   requestBody?: unknown;
   responseBody?: unknown;
+  requestHeaders?: Record<string, string>;
+  responseHeaders?: Record<string, string>;
 }
 
 /** A single captured app/state action (Redux, navigation, custom, …). */
@@ -153,6 +157,8 @@ export interface NativeNetworkEvent {
   durationMs: number;
   requestBody?: string;
   responseBody?: string;
+  requestHeaders?: Record<string, string>;
+  responseHeaders?: Record<string, string>;
 }
 
 /** Live metrics read from the native module. */

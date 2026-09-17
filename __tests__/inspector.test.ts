@@ -174,7 +174,54 @@ describe('native network capture', () => {
 
     expect(provider.startNetworkCapture).toHaveBeenCalledWith(
       expect.any(Function),
-      { captureBodies: false, maxBodyBytes: 32 * 1024 },
+      { captureBodies: false, maxBodyBytes: 32 * 1024, captureHeaders: true },
+    );
+  });
+
+  it('stores natively captured headers with secrets redacted', () => {
+    const provider = makeProvider();
+    AppInspector.setNativeMetricsProvider(provider);
+    AppInspector.configure();
+    AppInspector.start();
+    provider.emit({
+      method: 'GET',
+      url: 'https://api.example.com/me',
+      status: 200,
+      startedAt: Date.now(),
+      durationMs: 12,
+      requestHeaders: { Authorization: 'Bearer x', Accept: 'application/json' },
+      responseHeaders: { 'Set-Cookie': 'sid=1', 'Content-Type': 'text/plain' },
+    });
+
+    const entry = AppInspector.getState().network[0];
+    expect(entry?.requestHeaders).toEqual({
+      Authorization: '[redacted]',
+      Accept: 'application/json',
+    });
+    expect(entry?.responseHeaders).toEqual({
+      'Set-Cookie': '[redacted]',
+      'Content-Type': 'text/plain',
+    });
+  });
+
+  it('drops native headers when captureHeaders is false', () => {
+    const provider = makeProvider();
+    AppInspector.setNativeMetricsProvider(provider);
+    AppInspector.configure({ network: { captureHeaders: false } });
+    AppInspector.start();
+    provider.emit({
+      method: 'GET',
+      url: 'https://api.example.com/me',
+      status: 200,
+      startedAt: Date.now(),
+      durationMs: 12,
+      requestHeaders: { Authorization: 'Bearer x' },
+    });
+
+    expect(AppInspector.getState().network[0]?.requestHeaders).toBeUndefined();
+    expect(provider.startNetworkCapture).toHaveBeenCalledWith(
+      expect.any(Function),
+      { captureBodies: true, maxBodyBytes: 32 * 1024, captureHeaders: false },
     );
   });
 
@@ -186,7 +233,7 @@ describe('native network capture', () => {
 
     expect(provider.startNetworkCapture).toHaveBeenCalledWith(
       expect.any(Function),
-      { captureBodies: true, maxBodyBytes: 1024 },
+      { captureBodies: true, maxBodyBytes: 1024, captureHeaders: true },
     );
   });
 });

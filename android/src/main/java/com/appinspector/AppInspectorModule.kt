@@ -212,9 +212,10 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun startNetworkCapture(captureBodies: Boolean, maxBodyBytes: Double) {
+  fun startNetworkCapture(captureBodies: Boolean, maxBodyBytes: Double, captureHeaders: Boolean) {
     AppInspectorNetwork.enabled = true
     AppInspectorNetwork.captureBodies = captureBodies
+    AppInspectorNetwork.captureHeaders = captureHeaders
     AppInspectorNetwork.maxBodyBytes = maxBodyBytes.toLong().coerceAtLeast(0L)
     AppInspectorNetwork.listener = { call ->
       if (reactContext.hasActiveReactInstance()) {
@@ -226,6 +227,8 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
         map.putDouble("durationMs", call.durationMs.toDouble())
         call.requestBody?.let { map.putString("requestBody", it) }
         call.responseBody?.let { map.putString("responseBody", it) }
+        call.requestHeaders?.let { map.putMap("requestHeaders", it.toWritableMap()) }
+        call.responseHeaders?.let { map.putMap("responseHeaders", it.toWritableMap()) }
         reactContext
           .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
           .emit("AppInspectorNetwork", map)
@@ -248,6 +251,9 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
       promise.resolve(0.0)
     }
   }
+
+  private fun Map<String, String>.toWritableMap() =
+    Arguments.createMap().also { map -> forEach { (k, v) -> map.putString(k, v) } }
 
   // Required so NativeEventEmitter does not warn on Android.
   @ReactMethod

@@ -34,11 +34,28 @@ function body(value: unknown): string | null {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
+const shellQuote = (text: string): string => `'${text.replace(/'/g, `'\\''`)}'`;
+
+function headerLines(
+  headers: Record<string, string> | undefined,
+): string | null {
+  if (!headers) {
+    return null;
+  }
+  const lines = Object.entries(headers).map(
+    ([name, value]) => `${name}: ${value}`,
+  );
+  return lines.length > 0 ? lines.join('\n') : null;
+}
+
 function asCurl(entry: NetworkLogEntry): string {
-  const parts = [`curl -X ${entry.method} '${entry.url}'`];
+  const parts = [`curl -X ${entry.method} ${shellQuote(entry.url)}`];
+  for (const [name, value] of Object.entries(entry.requestHeaders ?? {})) {
+    parts.push(`  -H ${shellQuote(`${name}: ${value}`)}`);
+  }
   const req = body(entry.requestBody);
   if (req) {
-    parts.push(`  -d '${req.replace(/'/g, `'\\''`)}'`);
+    parts.push(`  -d ${shellQuote(req)}`);
   }
   return parts.join(' \\\n');
 }
@@ -53,6 +70,8 @@ function NetworkDetail({
   const { styles, theme } = usePanelStyles();
   const req = body(entry.requestBody);
   const res = body(entry.responseBody);
+  const reqHeaders = headerLines(entry.requestHeaders);
+  const resHeaders = headerLines(entry.responseHeaders);
   return (
     <View>
       <TouchableOpacity
@@ -80,12 +99,34 @@ function NetworkDetail({
       </View>
       <CopyButton label="Copy cURL" getText={() => asCurl(entry)} />
 
+      {reqHeaders ? (
+        <>
+          <Text style={styles.sectionTitle}>Request headers</Text>
+          <View style={styles.codeBlock}>
+            <Text style={styles.codeText} selectable>
+              {reqHeaders}
+            </Text>
+          </View>
+        </>
+      ) : null}
+
       {req ? (
         <>
           <Text style={styles.sectionTitle}>Request body</Text>
           <View style={styles.codeBlock}>
             <Text style={styles.codeText} selectable>
               {req}
+            </Text>
+          </View>
+        </>
+      ) : null}
+
+      {resHeaders ? (
+        <>
+          <Text style={styles.sectionTitle}>Response headers</Text>
+          <View style={styles.codeBlock}>
+            <Text style={styles.codeText} selectable>
+              {resHeaders}
             </Text>
           </View>
         </>

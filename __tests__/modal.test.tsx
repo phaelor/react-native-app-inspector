@@ -122,6 +122,30 @@ describe('<InspectorModal />', () => {
     expect(getByText('Copied ✓')).toBeTruthy();
   });
 
+  it('shows captured headers and puts request headers into the cURL', () => {
+    const setString = jest.fn();
+    AppInspector.configure({ clipboard: { setString } });
+    const { getByText, getAllByText } = render(
+      <InspectorModal visible initialTab="network" />,
+    );
+    pushRequest({
+      requestHeaders: {
+        Authorization: '[redacted]',
+        Accept: 'application/json',
+      },
+      responseHeaders: { 'content-type': 'application/json' },
+    });
+    fireEvent.press(getByText('https://api.example.com/orders'));
+    expect(getByText('Request headers')).toBeTruthy();
+    // Once in the headers block and once inside the cURL.
+    expect(getAllByText(/Authorization: \[redacted\]/)).toHaveLength(2);
+    expect(getByText('Response headers')).toBeTruthy();
+    fireEvent.press(getByText('Copy cURL'));
+    expect(setString).toHaveBeenCalledWith(
+      expect.stringContaining("-H 'Accept: application/json'"),
+    );
+  });
+
   it('hides Copy buttons when no clipboard is available', () => {
     const { getByText, queryByText } = render(
       <InspectorModal visible initialTab="network" />,

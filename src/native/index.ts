@@ -13,7 +13,11 @@ interface AppInspectorNativeModule {
   getProcessStartTime(): Promise<number>;
   watchNextFrame(): Promise<number>;
   /** Present from the version that ships the native network interceptor. */
-  startNetworkCapture?(captureBodies: boolean, maxBodyBytes: number): void;
+  startNetworkCapture?(
+    captureBodies: boolean,
+    maxBodyBytes: number,
+    captureHeaders: boolean,
+  ): void;
   stopNetworkCapture?(): void;
   /** Android: false when the OkHttp interceptor could not be installed. */
   networkCaptureAvailable?: boolean;
@@ -112,6 +116,7 @@ class NativeMetricsBridge implements NativeMetricsProvider {
     nativeModule?.startNetworkCapture?.(
       options.captureBodies ?? true,
       options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES,
+      options.captureHeaders ?? true,
     );
   }
 

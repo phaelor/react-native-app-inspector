@@ -4,9 +4,14 @@ import type { NetworkLogEntry } from '../src/core/types';
 /** Minimal XHR stand-in so the interceptor can be driven deterministically. */
 class FakeXhr {
   status = 0;
+  responseHeaders = '';
   private listeners: Record<string, Array<() => void>> = {};
   open(_method: string, _url: string): void {}
   send(_body?: unknown): void {}
+  setRequestHeader(_name: string, _value: string): void {}
+  getAllResponseHeaders(): string {
+    return this.responseHeaders;
+  }
   addEventListener(type: string, cb: () => void): void {
     (this.listeners[type] ??= []).push(cb);
   }
@@ -72,5 +77,55 @@ describe('NetworkLogger (XHR interceptor)', () => {
     xhr.finish(200);
 
     expect(entries).toHaveLength(0);
+  });
+
+  it('captures request and response headers with secrets redacted', () => {
+    const entries: NetworkLogEntry[] = [];
+    const logger = new NetworkLogger({ onEntry: (e) => entries.push(e) });
+    logger.start();
+
+    const xhr = new FakeXhr();
+    xhr.open('POST', 'https://api.example.com/orders');
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Authorization', 'Bearer abc');
+    xhr.setRequestHeader('X-Api-Key', 'k');
+    xhr.responseHeaders =
+      'content-type: application/json\r\nset-cookie: a=1\r\nset-cookie: b=2\r\nx-request-id: r1\r\n';
+    xhr.send('{}');
+    xhr.finish(201);
+
+    expect(entries[0]?.requestHeaders).toEqual({
+      'Content-Type': 'application/json',
+      Authorization: '[redacted]',
+      'X-Api-Key': '[redacted]',
+    });
+    expect(entries[0]?.responseHeaders).toEqual({
+      'content-type': 'application/json',
+      'set-cookie': '[redacted]',
+      'x-request-id': 'r1',
+    });
+
+    logger.stop();
+    expect(FakeXhr.prototype.setRequestHeader.name).toBe('setRequestHeader');
+  });
+
+  it('skips headers when captureHeaders is false', () => {
+    const entries: NetworkLogEntry[] = [];
+    const logger = new NetworkLogger({
+      onEntry: (e) => entries.push(e),
+      captureHeaders: false,
+    });
+    logger.start();
+
+    const xhr = new FakeXhr();
+    xhr.open('GET', 'https://api.example.com/me');
+    xhr.setRequestHeader('Authorization', 'Bearer abc');
+    xhr.responseHeaders = 'content-type: application/json\r\n';
+    xhr.send();
+    xhr.finish(200);
+
+    expect(entries[0]?.requestHeaders).toBeUndefined();
+    expect(entries[0]?.responseHeaders).toBeUndefined();
+    logger.stop();
   });
 });
