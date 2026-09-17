@@ -3,8 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+  # No branch filter: stacked PRs target feature branches and need checks too.
   pull_request:
-    branches: [main]
 
 jobs:
   verify:
