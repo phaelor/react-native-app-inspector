@@ -1,6 +1,15 @@
 apply plugin: "com.android.library"
 apply plugin: "org.jetbrains.kotlin.android"
 
+// RN 0.82+ forces this property to "true" for every subproject.
+def isNewArchitectureEnabled() {
+  return project.hasProperty("newArchEnabled") && project.newArchEnabled == "true"
+}
+
+if (isNewArchitectureEnabled()) {
+  apply plugin: "com.facebook.react"
+}
+
 // AGP, the kotlin gradle plugin and the SDK versions are provided by the host
 // app's root project (RN's pluginManagement) and inherited here.
 def getExtOrIntegerDefault = { name ->
@@ -20,6 +29,16 @@ android {
   buildFeatures {
     buildConfig true
   }
+
+  sourceSets {
+    main {
+      if (isNewArchitectureEnabled()) {
+        java.srcDirs += ["src/newarch/java"]
+      } else {
+        java.srcDirs += ["src/oldarch/java"]
+      }
+    }
+  }
 }
 
 repositories {
@@ -29,4 +48,12 @@ repositories {
 
 dependencies {
   implementation "com.facebook.react:react-android"
+}
+
+if (isNewArchitectureEnabled()) {
+  react {
+    jsRootDir = file("../src/native")
+    libraryName = "RNAppInspectorSpec"
+    codegenJavaPackageName = "com.appinspector"
+  }
 }
