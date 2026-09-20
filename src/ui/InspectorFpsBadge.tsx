@@ -29,6 +29,21 @@ export interface InspectorFpsBadgeProps {
 const MARGIN = 12;
 const TOP_INSET = 52;
 const BOTTOM_INSET = 40;
+
+/** Position of a badge docked to the left or right edge of `window`. */
+export function dockBadge(
+  y: number | 'bottom',
+  right: boolean,
+  badge: { width: number; height: number },
+  window: { width: number; height: number },
+): { x: number; y: number } {
+  const maxX = Math.max(MARGIN, window.width - badge.width - MARGIN);
+  const maxY = Math.max(TOP_INSET, window.height - badge.height - BOTTOM_INSET);
+  return {
+    x: right ? maxX : MARGIN,
+    y: y === 'bottom' ? maxY : Math.min(Math.max(y, TOP_INSET), maxY),
+  };
+}
 const DRAG_THRESHOLD = 6;
 
 function useLatestSample(active: boolean): PerformanceSample | undefined {
@@ -85,6 +100,12 @@ export function InspectorFpsBadge({
   const pos = useRef({ x: 0, y: 0 });
   const size = useRef({ width: 0, height: 0 });
   const placed = useRef(false);
+  const dockedRight = useRef(initialCorner.endsWith('right'));
+  // Where the badge wants to be, kept apart from where a small window forced
+  // it: clamping alone would never let it return.
+  const wantedY = useRef<number | 'bottom'>(
+    initialCorner.startsWith('bottom') ? 'bottom' : TOP_INSET,
+  );
   const [ready, setReady] = useState(false);
   const dimsRef = useRef(dims);
   dimsRef.current = dims;
@@ -105,6 +126,20 @@ export function InspectorFpsBadge({
     };
   };
 
+  // Rotation, split-screen or a fold change the window under a badge that was
+  // placed once: pull it back to its edge or it ends up off-screen.
+  useEffect(() => {
+    if (!placed.current) {
+      return;
+    }
+    pan.setValue(
+      dockBadge(wantedY.current, dockedRight.current, size.current, {
+        width: dims.width,
+        height: dims.height,
+      }),
+    );
+  }, [dims.width, dims.height, pan]);
+
   const snapToEdge = (): void => {
     const { width, height } = dimsRef.current;
     const maxX = Math.max(MARGIN, width - size.current.width - MARGIN);
@@ -113,9 +148,11 @@ export function InspectorFpsBadge({
       height - size.current.height - BOTTOM_INSET,
     );
     const center = pos.current.x + size.current.width / 2;
+    dockedRight.current = center >= width / 2;
+    wantedY.current = Math.min(Math.max(pos.current.y, TOP_INSET), maxY);
     Animated.spring(pan, {
       toValue: {
-        x: center < width / 2 ? MARGIN : maxX,
+        x: dockedRight.current ? maxX : MARGIN,
         y: Math.min(Math.max(pos.current.y, TOP_INSET), maxY),
       },
       friction: 7,
@@ -153,6 +190,7 @@ export function InspectorFpsBadge({
 
   return (
     <Animated.View
+      testID="inspector-fps-badge"
       {...responder.panHandlers}
       onLayout={(e) => {
         size.current = {
