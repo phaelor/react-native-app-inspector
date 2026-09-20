@@ -16,10 +16,7 @@ import type { Theme } from './theme';
 
 /** Corner the badge docks to before it's dragged. */
 export type BadgeCorner =
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right';
+  'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 export interface InspectorFpsBadgeProps {
   visible?: boolean;

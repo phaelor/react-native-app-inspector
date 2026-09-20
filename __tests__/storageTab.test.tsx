@@ -39,8 +39,7 @@ function setup(seed: Record<string, string>) {
 /** Press the destructive button of the last Alert.alert call. */
 function confirmLastAlert(alert: jest.SpyInstance): void {
   const buttons = alert.mock.lastCall?.[2] as
-    | Array<{ style?: string; onPress?: () => void }>
-    | undefined;
+    Array<{ style?: string; onPress?: () => void }> | undefined;
   buttons?.find((b) => b.style === 'destructive')?.onPress?.();
 }
 

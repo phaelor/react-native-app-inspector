@@ -197,7 +197,7 @@ export function TimelineTab({
       initialNumToRender={20}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
-        events.length === 0 ? null : (
+        events.length === 0 ? undefined : (
           <>
             {correlation?.summary ? (
               <CauseBanner summary={correlation.summary} />
