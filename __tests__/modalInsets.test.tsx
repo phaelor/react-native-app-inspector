@@ -66,6 +66,18 @@ describe('panel safe-area padding', () => {
     });
     expect(padding()).toMatchObject({ paddingTop: 59, paddingBottom: 34 });
 
+    // The keyboard shrinks the Modal; the header must stay clear of the bar.
+    fireEvent(root, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 400, height: screen - 300 } },
+    });
+    expect(padding()).toMatchObject({ paddingTop: 59, paddingBottom: 34 });
+  });
+
+  it('adds no padding on Android when the system keeps the panel inset', async () => {
+    setPlatform('android');
+    mockNativeInsets();
+    const screen = Dimensions.get('screen').height;
+    const { root, padding } = await renderPanel();
     fireEvent(root, 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 400, height: screen - 72 } },
     });

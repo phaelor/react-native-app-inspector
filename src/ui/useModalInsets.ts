@@ -75,10 +75,15 @@ export function useModalInsets(visible: boolean): ModalInsets {
     if (Platform.OS !== 'android') {
       return;
     }
-    const covers =
-      event.nativeEvent.layout.height >= Dimensions.get('screen').height - 1;
-    cachedCoversScreen = covers;
-    setCoversScreen(covers);
+    // Latched: edge-to-edge is a property of the app, while the height also
+    // drops below the screen's whenever the keyboard resizes the Modal.
+    if (
+      event.nativeEvent.layout.height >=
+      Dimensions.get('screen').height - 1
+    ) {
+      cachedCoversScreen = true;
+      setCoversScreen(true);
+    }
   }, []);
 
   let applied = ZERO;

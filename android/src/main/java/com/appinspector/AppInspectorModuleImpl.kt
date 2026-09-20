@@ -261,12 +261,13 @@ class AppInspectorModuleImpl(private val reactContext: ReactApplicationContext) 
           bottom = insets.bottom
           left = insets.left
         } else {
+          // Stable insets: the system window ones grow with the keyboard.
           @Suppress("DEPRECATION")
           run {
-            top = rootInsets.systemWindowInsetTop
-            right = rootInsets.systemWindowInsetRight
-            bottom = rootInsets.systemWindowInsetBottom
-            left = rootInsets.systemWindowInsetLeft
+            top = rootInsets.stableInsetTop
+            right = rootInsets.stableInsetRight
+            bottom = rootInsets.stableInsetBottom
+            left = rootInsets.stableInsetLeft
           }
         }
       }
