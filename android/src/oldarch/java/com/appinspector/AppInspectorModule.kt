@@ -32,6 +32,9 @@ class AppInspectorModule(reactContext: ReactApplicationContext) :
   fun watchNextFrame(promise: Promise) = impl.watchNextFrame(promise)
 
   @ReactMethod
+  fun getWindowInsets(promise: Promise) = impl.getWindowInsets(promise)
+
+  @ReactMethod
   fun startNetworkCapture(captureBodies: Boolean, maxBodyBytes: Double, captureHeaders: Boolean) =
     impl.startNetworkCapture(captureBodies, maxBodyBytes, captureHeaders)
 

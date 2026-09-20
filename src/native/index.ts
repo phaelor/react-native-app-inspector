@@ -8,6 +8,13 @@ import type {
 import { DEFAULT_MAX_BODY_BYTES } from '../modules/network/redact';
 import NativeAppInspector, { type Spec } from './NativeAppInspector';
 
+export interface WindowInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 const EVENT_NAME = 'AppInspectorMetrics';
 const NETWORK_EVENT_NAME = 'AppInspectorNetwork';
 
@@ -123,6 +130,22 @@ class NativeMetricsBridge implements NativeMetricsProvider {
     try {
       const presentedAtMs = await nativeModule.watchNextFrame();
       return presentedAtMs > 0 ? presentedAtMs : null;
+    } catch {
+      return null;
+    }
+  }
+
+  supportsWindowInsets(): boolean {
+    return typeof nativeModule?.getWindowInsets === 'function';
+  }
+
+  /** `null` when the native module is not linked or the call fails. */
+  async getWindowInsets(): Promise<WindowInsets | null> {
+    if (!nativeModule?.getWindowInsets) {
+      return null;
+    }
+    try {
+      return await nativeModule.getWindowInsets();
     } catch {
       return null;
     }
