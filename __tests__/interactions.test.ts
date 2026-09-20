@@ -7,6 +7,8 @@ import { AppInspector } from '../src/core';
 function makeTracker(options: {
   watchFramePresentation?: () => Promise<number | null>;
   timeoutMs?: number;
+  /** False simulates production React, where no commit is ever reported. */
+  commitSignal?: boolean;
 }) {
   let clock = 0;
   const completed: CompletedInteraction[] = [];
@@ -15,9 +17,13 @@ function makeTracker(options: {
     onComplete: (interaction) => completed.push(interaction),
     now: () => clock,
     requestFrame: (cb) => frames.push(cb),
+    afterTask: (cb) => frames.push(cb),
     watchFramePresentation: options.watchFramePresentation,
     timeoutMs: options.timeoutMs,
   });
+  if (options.commitSignal ?? true) {
+    tracker.notifyCommit();
+  }
   return {
     tracker,
     completed,
@@ -243,6 +249,7 @@ describe('InteractionTracker — timeout & clear', () => {
       requestFrame: (cb) => frames.push(cb),
       captureContext: () => screen,
     });
+    tracker.notifyCommit();
     tracker.begin('Tap', { completeOnCommit: true });
     screen = 'Home';
     tracker.notifyCommit();
@@ -416,5 +423,129 @@ describe('Interactions — integration via AppInspector', () => {
     expect(checkout.interactions.count).toBe(1);
     expect(checkout.interactions.slowCount).toBe(1);
     expect(checkout.interactions.worstLabel).toBe('Place order');
+  });
+});
+
+describe('InteractionTracker — no commit signal (production React)', () => {
+  it('ends an auto tap at the next presented frame', async () => {
+    const t = makeTracker({
+      commitSignal: false,
+      watchFramePresentation: () => Promise.resolve(560),
+    });
+    t.tracker.begin('Add', {
+      nativeTimestampMs: 500,
+      completeOnCommit: true,
+      auto: true,
+    });
+    expect(t.completed).toHaveLength(0);
+    t.flushFrames();
+    await flushMicrotasks();
+    expect(t.completed).toEqual([
+      expect.objectContaining({
+        label: 'Add',
+        latencyMs: 60,
+        endedBy: 'frame',
+        clock: 'native',
+      }),
+    ]);
+  });
+
+  it('skips frames presented before the JS work settled', async () => {
+    // Press feedback at +10ms, another early frame at +20ms, response at +140ms.
+    const frames = [510, 520, 640];
+    const t = makeTracker({
+      commitSignal: false,
+      watchFramePresentation: () => Promise.resolve(frames.shift() ?? null),
+    });
+    t.set(1000);
+    t.tracker.begin('Stats', {
+      nativeTimestampMs: 500,
+      completeOnCommit: true,
+      auto: true,
+    });
+    t.set(1100);
+    t.flushFrames(); // the synchronous work took 100ms
+    for (let i = 0; i < 6; i += 1) {
+      await flushMicrotasks();
+    }
+    expect(t.completed).toEqual([
+      expect.objectContaining({ latencyMs: 140, endedBy: 'frame' }),
+    ]);
+  });
+
+  it('accepts a response frame reported before the settle mark', async () => {
+    const t = makeTracker({
+      commitSignal: false,
+      watchFramePresentation: () => Promise.resolve(525),
+    });
+    t.set(1000);
+    t.tracker.begin('Toggle', {
+      nativeTimestampMs: 500,
+      completeOnCommit: true,
+      auto: true,
+    });
+    await flushMicrotasks(); // the frame is reported first…
+    t.set(1030);
+    t.flushFrames(); // …the task after the handlers 30ms after the touch
+    await flushMicrotasks();
+    await flushMicrotasks();
+    expect(t.completed).toEqual([
+      expect.objectContaining({ latencyMs: 25, endedBy: 'frame' }),
+    ]);
+  });
+
+  it('drops the tap when no frame is presented', async () => {
+    const t = makeTracker({
+      commitSignal: false,
+      watchFramePresentation: () => Promise.resolve(null),
+    });
+    t.tracker.begin('Noop', {
+      nativeTimestampMs: 500,
+      completeOnCommit: true,
+      auto: true,
+    });
+    t.flushFrames();
+    await flushMicrotasks();
+    t.flushFrames();
+    expect(t.completed).toHaveLength(0);
+  });
+
+  it('measures on the JS clock without the native module', () => {
+    const t = makeTracker({ commitSignal: false });
+    t.set(1000);
+    t.tracker.begin('Add', { completeOnCommit: true, auto: true });
+    t.set(1012);
+    t.flushFrames(); // fallback fires and schedules the measuring frame
+    t.set(1028);
+    t.flushFrames();
+    expect(t.completed).toEqual([
+      expect.objectContaining({ latencyMs: 28, endedBy: 'frame', clock: 'js' }),
+    ]);
+  });
+
+  it('lets an explicit begin adopt the tap before the frame', () => {
+    const t = makeTracker({ commitSignal: false });
+    t.tracker.begin('Tap', { completeOnCommit: true, auto: true });
+    const end = t.tracker.begin('Checkout');
+    t.flushFrames();
+    expect(t.completed).toHaveLength(0);
+    end();
+    t.flushFrames();
+    expect(t.completed).toEqual([
+      expect.objectContaining({ label: 'Checkout', endedBy: 'manual' }),
+    ]);
+  });
+
+  it('switches to the commit path once a commit is reported', () => {
+    const t = makeTracker({ commitSignal: false });
+    t.tracker.notifyCommit();
+    t.tracker.begin('Dead tap', { completeOnCommit: true, auto: true });
+    t.flushFrames();
+    expect(t.completed).toHaveLength(0);
+    t.tracker.notifyCommit();
+    t.flushFrames();
+    expect(t.completed).toEqual([
+      expect.objectContaining({ label: 'Dead tap', endedBy: 'commit' }),
+    ]);
   });
 });

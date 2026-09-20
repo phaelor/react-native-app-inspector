@@ -6,6 +6,17 @@
 import { AppInspector } from './core';
 import { NativeMetricsModule } from './native';
 import { getDeviceInfo } from './modules/deviceInfo';
+import { installCommitHook } from './ui/commitHook';
+
+installCommitHook(
+  globalThis as unknown as Record<string, unknown>,
+  typeof __DEV__ !== 'undefined' && __DEV__,
+  () => {
+    if (AppInspector.isRunning()) {
+      AppInspector.getInteractionTracker().notifyCommit();
+    }
+  },
+);
 
 AppInspector.setNativeMetricsProvider(NativeMetricsModule);
 AppInspector.setDeviceInfoProvider(getDeviceInfo);

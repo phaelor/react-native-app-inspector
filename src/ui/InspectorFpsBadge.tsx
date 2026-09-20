@@ -13,6 +13,7 @@ import { AppInspector } from '../core';
 import type { PerformanceSample } from '../core/types';
 import { fpsColor, useTheme } from './theme';
 import type { Theme } from './theme';
+import { markInspectorBadgeRender } from './uiRenderMark';
 
 /** Corner the badge docks to before it's dragged. */
 export type BadgeCorner =
@@ -92,6 +93,10 @@ export function InspectorFpsBadge({
   onPress,
   initialCorner = 'top-right',
 }: InspectorFpsBadgeProps): ReactElement | null {
+  if (visible) {
+    // Its once-a-second sample update must not pass for the app's response.
+    markInspectorBadgeRender();
+  }
   const latest = useLatestSample(visible);
   const theme = useTheme();
   const dims = useWindowDimensions();
