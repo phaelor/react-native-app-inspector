@@ -8,13 +8,13 @@
 
 import React, {useEffect, useState} from 'react';
 import {
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {AppInspector} from 'react-native-app-inspector';
 import {TodoListScreen} from './TodoListScreen';
 import {StatsScreen} from './StatsScreen';
@@ -70,37 +70,39 @@ export function DemoApp(): React.JSX.Element {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f3f4f6" />
-      <View style={styles.header}>
-        <View style={styles.tabs}>
-          <HeaderTab
-            label="Todos"
-            active={screen === 'todos'}
-            onPress={() => go('todos')}
-          />
-          <HeaderTab
-            label="Stats"
-            active={screen === 'stats'}
-            onPress={() => go('stats')}
-          />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.header}>
+          <View style={styles.tabs}>
+            <HeaderTab
+              label="Todos"
+              active={screen === 'todos'}
+              onPress={() => go('todos')}
+            />
+            <HeaderTab
+              label="Stats"
+              active={screen === 'stats'}
+              onPress={() => go('stats')}
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.errorButton}
+            onPress={simulateError}
+            accessibilityRole="button">
+            <Text style={styles.errorText}>Error</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.errorButton}
-          onPress={simulateError}
-          accessibilityRole="button">
-          <Text style={styles.errorText}>Error</Text>
-        </TouchableOpacity>
-      </View>
 
-      <View style={styles.body}>
-        {screen === 'todos' ? (
-          <TodoListScreen {...todos} />
-        ) : (
-          <StatsScreen todos={todos.todos} />
-        )}
-      </View>
-    </SafeAreaView>
+        <View style={styles.body}>
+          {screen === 'todos' ? (
+            <TodoListScreen {...todos} />
+          ) : (
+            <StatsScreen todos={todos.todos} />
+          )}
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
