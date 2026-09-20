@@ -49,7 +49,12 @@ object AppInspectorNetwork {
     if (attempted) return
     attempted = true
     val existing = try {
-      val field = OkHttpClientProvider::class.java.getDeclaredField("sFactory")
+      // `sFactory` until the provider was rewritten in Kotlin, `factory` since.
+      val field = try {
+        OkHttpClientProvider::class.java.getDeclaredField("sFactory")
+      } catch (e: NoSuchFieldException) {
+        OkHttpClientProvider::class.java.getDeclaredField("factory")
+      }
       field.isAccessible = true
       field.get(null) as? OkHttpClientFactory
     } catch (e: Throwable) {
