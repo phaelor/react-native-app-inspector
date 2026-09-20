@@ -94,6 +94,22 @@ describe('sanitizeBody', () => {
 });
 
 describe('redactHeaders', () => {
+  it('redacts secret query parameters in URL-valued headers', () => {
+    expect(
+      redactHeaders({
+        location: 'https://api.example.com/posts?api_key=SECRET&q=1/101',
+        'Content-Location': '/v1/items?token=abc&page=2',
+        Referer: 'https://app.example.com/cb?code=1&access_token=zzz#frag',
+        Link: '<https://api.example.com/next?page=2>; rel="next"',
+      }),
+    ).toEqual({
+      location: 'https://api.example.com/posts?api_key=[redacted]&q=1/101',
+      'Content-Location': '/v1/items?token=[redacted]&page=2',
+      Referer: 'https://app.example.com/cb?code=1&access_token=[redacted]#frag',
+      Link: '<https://api.example.com/next?page=2>; rel="next"',
+    });
+  });
+
   it('redacts auth-bearing headers and keeps the rest', () => {
     expect(
       redactHeaders({
