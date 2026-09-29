@@ -24,7 +24,7 @@ module.exports = {
     {
       // Component render tests (react-native preset + Testing Library).
       displayName: 'ui',
-      preset: 'react-native',
+      preset: '@react-native/jest-preset',
       testMatch: ['<rootDir>/__tests__/**/*.test.tsx'],
       modulePathIgnorePatterns: ['<rootDir>/example', '<rootDir>/lib'],
     },

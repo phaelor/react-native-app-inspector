@@ -82,7 +82,7 @@ export function InteractionsTab({
       initialNumToRender={20}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
-        all.length === 0 ? null : (
+        all.length === 0 ? undefined : (
           <>
             <Row label="taps measured" value={String(all.length)} />
             <Row label="avg / worst" value={`${avg}ms / ${worst}ms`} />

@@ -16,7 +16,7 @@ const LINKING_HINT =
   '(pod install / gradle) to enable UI-thread FPS and native memory. JS-thread ' +
   'FPS and heap still work without it.';
 
-const nativeModule: Spec | null = NativeAppInspector;
+const nativeModule: Spec | null = NativeAppInspector ?? null;
 
 /**
  * Bridges the native module's metric stream into the inspector. Works on both
@@ -49,8 +49,8 @@ class NativeMetricsBridge implements NativeMetricsProvider {
     }
     this.subscription = this.getEmitter().addListener(
       EVENT_NAME,
-      (metrics: NativeMetrics) => {
-        this.latest = metrics;
+      (metrics: object) => {
+        this.latest = metrics as NativeMetrics;
       },
     );
     nativeModule.startMonitoring(intervalMs);
@@ -101,7 +101,7 @@ class NativeMetricsBridge implements NativeMetricsProvider {
     this.networkSubscription?.remove();
     this.networkSubscription = this.getEmitter().addListener(
       NETWORK_EVENT_NAME,
-      onEntry,
+      (event: object) => onEntry(event as NativeNetworkEvent),
     );
     nativeModule?.startNetworkCapture?.(
       options.captureBodies ?? true,
