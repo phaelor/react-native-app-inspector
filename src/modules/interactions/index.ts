@@ -5,7 +5,11 @@ export const INTERACTION_ERROR_MS = 300;
 export interface CompletedInteraction {
   label: string;
   latencyMs: number;
-  endedBy: 'commit' | 'manual';
+  /**
+   * `frame`: no React commit signal exists (production React never calls
+   * `Profiler.onRender`), so the tap ended at the next presented frame.
+   */
+  endedBy: 'commit' | 'manual' | 'frame';
   clock: 'native' | 'js';
   /** Value returned by `captureContext` when the interaction began. */
   context?: unknown;
@@ -22,6 +26,8 @@ export interface InteractionTrackerOptions {
   captureContext?: () => unknown;
   now?: () => number;
   requestFrame?: (callback: () => void) => void;
+  /** Runs `callback` as the next task, after the current one and its microtasks. */
+  afterTask?: (callback: () => void) => void;
   timeoutMs?: number;
 }
 
@@ -40,6 +46,9 @@ export interface BeginInteractionOptions {
 }
 
 const DEDUP_WINDOW_MS = 32;
+/** Slack when matching a presented frame to the end of the JS work: 1 frame. */
+const FRAME_TOLERANCE_MS = 16;
+const MAX_FRAME_WATCHES = 30;
 
 interface PendingInteraction {
   label: string;
@@ -59,11 +68,23 @@ const defaultRequestFrame = (callback: () => void): void => {
   }
 };
 
+const defaultAfterTask = (callback: () => void): void => {
+  if (typeof setImmediate === 'function') {
+    setImmediate(callback);
+  } else {
+    setTimeout(callback, 0);
+  }
+};
+
 /**
  * Measures tap-to-response latency: native touch timestamp → presentation of
  * the first frame after the first React commit that follows. Falls back to a
  * pure-JS measurement (Date.now → rAF after commit) without the native module.
  * Interactions with no response are silently dropped after `timeoutMs`.
+ *
+ * Commits are reported by React's `<Profiler>`, which production React never
+ * calls. Until a first commit has been seen, commit-driven interactions end at
+ * the next presented frame instead, so auto taps still work in release builds.
  */
 export class InteractionTracker {
   private readonly onComplete: (interaction: CompletedInteraction) => void;
@@ -71,9 +92,11 @@ export class InteractionTracker {
   private readonly captureContext?: () => unknown;
   private readonly now: () => number;
   private readonly requestFrame: (callback: () => void) => void;
+  private readonly afterTask: (callback: () => void) => void;
   private readonly timeoutMs: number;
   private pending: PendingInteraction[] = [];
   private epoch = 0;
+  private sawCommit = false;
 
   constructor(options: InteractionTrackerOptions) {
     this.onComplete = options.onComplete;
@@ -81,6 +104,7 @@ export class InteractionTracker {
     this.captureContext = options.captureContext;
     this.now = options.now ?? Date.now;
     this.requestFrame = options.requestFrame ?? defaultRequestFrame;
+    this.afterTask = options.afterTask ?? defaultAfterTask;
     this.timeoutMs = options.timeoutMs ?? 5000;
   }
 
@@ -121,6 +145,9 @@ export class InteractionTracker {
       ),
     };
     this.pending.push(entry);
+    if (entry.completeOnCommit && !this.sawCommit) {
+      this.completeOnFrame(entry);
+    }
     return () => {
       if (this.take(entry)) {
         this.finish(entry, 'manual');
@@ -129,6 +156,7 @@ export class InteractionTracker {
   }
 
   notifyCommit(): void {
+    this.sawCommit = true;
     if (this.pending.length === 0) {
       return;
     }
@@ -138,6 +166,74 @@ export class InteractionTracker {
         this.finish(entry, 'commit');
       }
     }
+  }
+
+  /**
+   * Without a commit signal the response is the first frame presented once
+   * the tap's synchronous JS work is over. Frames are watched from the touch
+   * on, so the response frame cannot slip by; earlier ones (press feedback
+   * drawn while JS was still working) are skipped.
+   * The entry stays pending meanwhile so an explicit begin can still adopt it.
+   */
+  private completeOnFrame(entry: PendingInteraction): void {
+    const live = (): boolean => !this.sawCommit && this.pending.includes(entry);
+    const watch = this.watchFramePresentation;
+    const nativeStartMs = entry.nativeStartMs;
+    if (!watch || nativeStartMs === undefined) {
+      this.requestFrame(() => {
+        if (live() && this.take(entry)) {
+          this.finish(entry, 'frame');
+        }
+      });
+      return;
+    }
+
+    const epoch = this.epoch;
+    // JS time from the touch to the task after its handlers: React commits a
+    // press synchronously, so its work, however long it blocked the thread, is
+    // over by then. A frame callback would be too late a mark: on a busy
+    // thread it runs after the response frame is already on screen.
+    const settled = new Promise<number>((resolve) => {
+      this.afterTask(() => resolve(this.now() - entry.jsStartMs));
+    });
+    const next = (remaining: number): void => {
+      Promise.all([watch(), settled])
+        .then(([presentedAtMs, settledAfterMs]) => {
+          if (!live()) {
+            return;
+          }
+          // Nothing presented: the tap changed nothing on screen, which the
+          // commit path drops as well.
+          if (presentedAtMs === null || remaining === 0) {
+            this.take(entry);
+            return;
+          }
+          const latencyMs = presentedAtMs - nativeStartMs;
+          if (latencyMs < settledAfterMs - FRAME_TOLERANCE_MS) {
+            next(remaining - 1);
+            return;
+          }
+          this.take(entry);
+          if (latencyMs <= this.timeoutMs) {
+            this.emit(entry, latencyMs, 'frame', 'native', epoch);
+          } else {
+            // Not the touch clock (e.g. epoch vs monotonic): trust JS.
+            this.emit(entry, settledAfterMs, 'frame', 'js', epoch);
+          }
+        })
+        .catch(() => {
+          if (live() && this.take(entry)) {
+            this.emit(
+              entry,
+              this.now() - entry.jsStartMs,
+              'frame',
+              'js',
+              epoch,
+            );
+          }
+        });
+    };
+    next(MAX_FRAME_WATCHES);
   }
 
   /** Drops in-flight measurements and invalidates completions already racing. */
