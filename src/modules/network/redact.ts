@@ -110,6 +110,10 @@ export function redactValue(
   return out;
 }
 
+// Their value is a URL, and servers commonly echo the request URL back in
+// `Location`, secret query parameters included.
+const URL_HEADERS = new Set(['location', 'content-location', 'referer']);
+
 /** Copy of `headers` with secret values replaced; `undefined` when empty. */
 export function redactHeaders(
   headers: Record<string, unknown> | null | undefined,
@@ -122,7 +126,13 @@ export function redactHeaders(
     if (value === undefined || value === null) {
       continue;
     }
-    out[name] = isSecretKey(name) ? REDACTED : String(value);
+    if (isSecretKey(name)) {
+      out[name] = REDACTED;
+    } else if (URL_HEADERS.has(name.toLowerCase())) {
+      out[name] = redactUrl(String(value));
+    } else {
+      out[name] = String(value);
+    }
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
