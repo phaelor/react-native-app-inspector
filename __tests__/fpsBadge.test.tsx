@@ -1,5 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { InspectorFpsBadge } from '../src/ui/InspectorFpsBadge';
+import { InspectorFpsBadge, dockBadge } from '../src/ui/InspectorFpsBadge';
 import { AppInspector } from '../src/core';
 import type { PerformanceSample } from '../src/core/types';
 
@@ -47,5 +47,26 @@ describe('<InspectorFpsBadge />', () => {
     const { getByLabelText } = render(<InspectorFpsBadge onPress={onPress} />);
     fireEvent.press(getByLabelText('Open inspector'));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a docked badge inside a resized window', () => {
+    const badge = { width: 170, height: 48 };
+    // Placed bottom-right in portrait, then the window turns to landscape.
+    expect(
+      dockBadge('bottom', true, badge, { width: 390, height: 850 }),
+    ).toEqual({ x: 390 - 170 - 12, y: 850 - 48 - 40 });
+    expect(dockBadge(762, true, badge, { width: 850, height: 390 })).toEqual({
+      x: 850 - 170 - 12,
+      y: 390 - 48 - 40,
+    });
+    expect(dockBadge(762, false, badge, { width: 850, height: 390 })).toEqual({
+      x: 12,
+      y: 390 - 48 - 40,
+    });
+    // Still fits: only the horizontal edge moves.
+    expect(dockBadge(200, true, badge, { width: 850, height: 390 })).toEqual({
+      x: 850 - 170 - 12,
+      y: 200,
+    });
   });
 });
