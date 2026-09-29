@@ -50,8 +50,11 @@ jobs:
       - name: Install example dependencies
         run: npm install
         working-directory: example
-      - name: Compile library Kotlin
+      - name: Compile library (legacy architecture)
         run: ./gradlew :react-native-app-inspector:compileDebugKotlin --no-daemon
+        working-directory: example/android
+      - name: Compile library (New Architecture)
+        run: ./gradlew :react-native-app-inspector:compileDebugJavaWithJavac -PnewArchEnabled=true --no-daemon
         working-directory: example/android
 
   ios:

@@ -14,8 +14,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.bridge.ReactContextBaseJavaModule
-import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.io.File
 
@@ -26,9 +24,11 @@ import java.io.File
  *  - process start time for true startup timing
  *
  * Streams an `AppInspectorMetrics` event every `intervalMs` while monitoring.
+ *
+ * Shared by the legacy (`src/oldarch`) and TurboModule (`src/newarch`) wrappers.
  */
-class AppInspectorModule(private val reactContext: ReactApplicationContext) :
-  ReactContextBaseJavaModule(reactContext), Choreographer.FrameCallback {
+class AppInspectorModuleImpl(private val reactContext: ReactApplicationContext) :
+  Choreographer.FrameCallback {
 
   private var frameCount = 0
   private var windowStartNanos = 0L
@@ -48,16 +48,14 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
     Handler(thread.looper)
   }
 
-  private companion object {
-    const val WATCH_FRAME_TIMEOUT_MS = 3000L
+  companion object {
+    const val NAME = "AppInspector"
+    private const val WATCH_FRAME_TIMEOUT_MS = 3000L
   }
 
-  override fun getName(): String = "AppInspector"
-
-  override fun getConstants(): Map<String, Any> =
+  fun getConstants(): Map<String, Any> =
     mapOf("networkCaptureAvailable" to AppInspectorNetwork.installed)
 
-  @ReactMethod
   fun startMonitoring(intervalMs: Double) {
     handler.post {
       if (monitoring) stopInternal()
@@ -80,8 +78,11 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
     }
   }
 
-  @ReactMethod
   fun stopMonitoring() {
+    handler.post { stopInternal() }
+  }
+
+  fun invalidate() {
     handler.post { stopInternal() }
   }
 
@@ -155,10 +156,9 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
 
   // Presentation time (ms, uptime clock — same clock as MotionEvent.getEventTime)
   // of the next frame the app draws; -1.0 when nothing is drawn in time.
-  @ReactMethod
   fun watchNextFrame(promise: Promise) {
     handler.post {
-      val window = currentActivity?.window
+      val window = reactContext.currentActivity?.window
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && window != null) {
         watchViaFrameMetrics(window, promise)
       } else {
@@ -211,7 +211,6 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
     }, WATCH_FRAME_TIMEOUT_MS)
   }
 
-  @ReactMethod
   fun startNetworkCapture(captureBodies: Boolean, maxBodyBytes: Double, captureHeaders: Boolean) {
     AppInspectorNetwork.enabled = true
     AppInspectorNetwork.captureBodies = captureBodies
@@ -236,13 +235,11 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
     }
   }
 
-  @ReactMethod
   fun stopNetworkCapture() {
     AppInspectorNetwork.enabled = false
     AppInspectorNetwork.listener = null
   }
 
-  @ReactMethod
   fun getProcessStartTime(promise: Promise) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
       val sinceStart = SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()
@@ -254,11 +251,4 @@ class AppInspectorModule(private val reactContext: ReactApplicationContext) :
 
   private fun Map<String, String>.toWritableMap() =
     Arguments.createMap().also { map -> forEach { (k, v) -> map.putString(k, v) } }
-
-  // Required so NativeEventEmitter does not warn on Android.
-  @ReactMethod
-  fun addListener(eventName: String) {}
-
-  @ReactMethod
-  fun removeListeners(count: Double) {}
 }
