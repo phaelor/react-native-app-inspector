@@ -2,6 +2,7 @@
 #import "AppInspectorURLProtocol.h"
 
 #import <QuartzCore/CADisplayLink.h>
+#import <React/RCTUtils.h>
 #import <mach/mach.h>
 #import <sys/sysctl.h>
 
@@ -209,6 +210,22 @@ RCT_EXPORT_METHOD(stopNetworkCapture) {
   [AppInspectorURLProtocol setEnabled:NO];
   [AppInspectorURLProtocol setEventHandler:nil];
   [NSURLProtocol unregisterClass:[AppInspectorURLProtocol class]];
+}
+
+// Safe-area insets of the key window, in points. The panel pads itself with
+// these instead of React Native's deprecated SafeAreaView.
+RCT_EXPORT_METHOD(getWindowInsets : (RCTPromiseResolveBlock)resolve
+                  reject : (RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    UIWindow *window = RCTKeyWindow();
+    UIEdgeInsets insets = window ? window.safeAreaInsets : UIEdgeInsetsZero;
+    resolve(@{
+      @"top" : @(insets.top),
+      @"right" : @(insets.right),
+      @"bottom" : @(insets.bottom),
+      @"left" : @(insets.left),
+    });
+  });
 }
 
 RCT_EXPORT_METHOD(getProcessStartTime : (RCTPromiseResolveBlock)resolve

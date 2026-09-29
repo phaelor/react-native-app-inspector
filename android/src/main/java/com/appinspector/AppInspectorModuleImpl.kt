@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.view.Choreographer
 import android.view.FrameMetrics
 import android.view.Window
+import android.view.WindowInsets
 import java.util.concurrent.atomic.AtomicBoolean
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -238,6 +239,45 @@ class AppInspectorModuleImpl(private val reactContext: ReactApplicationContext) 
   fun stopNetworkCapture() {
     AppInspectorNetwork.enabled = false
     AppInspectorNetwork.listener = null
+  }
+
+  // System bar and cutout insets of the activity window, in dp. The panel pads
+  // itself with these when its Modal is drawn edge-to-edge.
+  fun getWindowInsets(promise: Promise) {
+    handler.post {
+      val map = Arguments.createMap()
+      val rootInsets = reactContext.currentActivity?.window?.decorView?.rootWindowInsets
+      var top = 0
+      var right = 0
+      var bottom = 0
+      var left = 0
+      if (rootInsets != null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          val insets = rootInsets.getInsets(
+            WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+          )
+          top = insets.top
+          right = insets.right
+          bottom = insets.bottom
+          left = insets.left
+        } else {
+          // Stable insets: the system window ones grow with the keyboard.
+          @Suppress("DEPRECATION")
+          run {
+            top = rootInsets.stableInsetTop
+            right = rootInsets.stableInsetRight
+            bottom = rootInsets.stableInsetBottom
+            left = rootInsets.stableInsetLeft
+          }
+        }
+      }
+      val density = reactContext.resources.displayMetrics.density.toDouble()
+      map.putDouble("top", top / density)
+      map.putDouble("right", right / density)
+      map.putDouble("bottom", bottom / density)
+      map.putDouble("left", left / density)
+      promise.resolve(map)
+    }
   }
 
   fun getProcessStartTime(promise: Promise) {

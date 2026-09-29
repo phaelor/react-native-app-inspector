@@ -23,6 +23,8 @@ class AppInspectorModule(reactContext: ReactApplicationContext) :
 
   override fun watchNextFrame(promise: Promise) = impl.watchNextFrame(promise)
 
+  override fun getWindowInsets(promise: Promise) = impl.getWindowInsets(promise)
+
   override fun startNetworkCapture(
     captureBodies: Boolean,
     maxBodyBytes: Double,

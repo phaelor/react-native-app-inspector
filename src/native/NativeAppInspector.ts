@@ -20,6 +20,12 @@ export interface Spec extends TurboModule {
     captureHeaders: boolean,
   ): void;
   stopNetworkCapture(): void;
+  getWindowInsets(): Promise<{
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  }>;
   getConstants(): {
     /** False when the OkHttp interceptor could not be installed (Android). */
     networkCaptureAvailable: boolean;

@@ -36,6 +36,11 @@ describe('NativeMetricsModule — native module not linked', () => {
   it('resolves null for the next presented frame', async () => {
     await expect(NativeMetricsModule.watchNextFrame()).resolves.toBeNull();
   });
+
+  it('reports no window insets', async () => {
+    expect(NativeMetricsModule.supportsWindowInsets()).toBe(false);
+    await expect(NativeMetricsModule.getWindowInsets()).resolves.toBeNull();
+  });
 });
 
 describe('NativeMetricsModule — network capture capability', () => {

@@ -14,6 +14,7 @@ import {
 import { AppInspector } from '../core';
 import { shareLogs } from '../export/share';
 import { useInspectorState } from './useInspectorState';
+import { useModalInsets } from './useModalInsets';
 import { markInspectorUiRender } from './uiRenderMark';
 import { TimelineTab } from './panel/TimelineTab';
 import { NetworkTab } from './panel/NetworkTab';
@@ -175,6 +176,10 @@ export function InspectorModal({
   }
   const { styles, theme } = usePanelStyles();
   const live = useInspectorState(visible);
+  const safeArea = useModalInsets(visible);
+  // Only reached on iOS without the native module; guarded because React
+  // Native has announced SafeAreaView's removal.
+  const Root = safeArea.useLegacySafeArea ? (SafeAreaView ?? View) : View;
   const reduceMotion = useReduceMotion();
 
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -210,7 +215,11 @@ export function InspectorModal({
       animationType={reduceMotion ? 'fade' : 'slide'}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.fullscreen}>
+      <Root
+        testID="inspector-panel-root"
+        style={[styles.fullscreen, safeArea.padding]}
+        onLayout={safeArea.onLayout}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Inspector</Text>
           {paused ? (
@@ -310,7 +319,7 @@ export function InspectorModal({
             )}
           </ScrollView>
         ) : null}
-      </SafeAreaView>
+      </Root>
     </Modal>
   );
 }
