@@ -54,6 +54,71 @@ jobs:
         run: ./gradlew :react-native-app-inspector:compileDebugJavaWithJavac --no-daemon
         working-directory: example/android
 
+  # The example pins one React Native version; the library supports a range.
+  # These scaffold a throwaway app per version and compile the module against
+  # it — the only place the legacy-architecture sources are still built, since
+  # React Native 0.82+ forces the New Architecture on.
+  compat:
+    name: Compile against RN ${{ matrix.rn }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Oldest supported; its template defaults to the legacy architecture.
+          - rn: 0.74.5
+            legacy: true
+          - rn: 0.76.9
+            legacy: true
+          - rn: 0.81.4
+            legacy: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Scaffold a bare app
+        run: |
+          npx --yes @react-native-community/cli@latest init CompatApp \
+            --version ${{ matrix.rn }} --skip-install --skip-git-init \
+            --install-pods false --directory "$RUNNER_TEMP/app"
+      - name: Link the library from source
+        run: |
+          cat > "$RUNNER_TEMP/app/react-native.config.js" <<EOF
+          module.exports = {
+            dependencies: {
+              'react-native-app-inspector': {root: '$GITHUB_WORKSPACE'},
+            },
+          };
+          EOF
+      # The templates pin an NDK the runner may not have, and letting the
+      # Android plugin fetch it is flaky. Nothing here is built with it.
+      - name: Pin the NDK to one installed on the runner
+        run: |
+          ndk=$(ls "$ANDROID_HOME/ndk" 2>/dev/null | sort -V | tail -1)
+          if [ -n "$ndk" ]; then
+            sed -i "s/ndkVersion = \".*\"/ndkVersion = \"$ndk\"/" android/build.gradle
+          fi
+          grep ndkVersion android/build.gradle
+        working-directory: ${{ runner.temp }}/app
+      - name: Install app dependencies
+        run: npm install
+        working-directory: ${{ runner.temp }}/app
+      - name: Compile the module
+        run: ./gradlew :react-native-app-inspector:compileDebugJavaWithJavac --no-daemon
+        working-directory: ${{ runner.temp }}/app/android
+      - name: Compile the module (legacy architecture)
+        if: matrix.legacy
+        run: |
+          ./gradlew :react-native-app-inspector:compileDebugJavaWithJavac \
+            -PnewArchEnabled=false --no-daemon
+        working-directory: ${{ runner.temp }}/app/android
+
   ios:
     name: Compile iOS module
     runs-on: macos-15
