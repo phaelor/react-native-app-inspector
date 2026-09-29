@@ -96,6 +96,16 @@ jobs:
             },
           };
           EOF
+      # The templates pin an NDK the runner may not have, and letting the
+      # Android plugin fetch it is flaky. Nothing here is built with it.
+      - name: Pin the NDK to one installed on the runner
+        run: |
+          ndk=$(ls "$ANDROID_HOME/ndk" 2>/dev/null | sort -V | tail -1)
+          if [ -n "$ndk" ]; then
+            sed -i "s/ndkVersion = \".*\"/ndkVersion = \"$ndk\"/" android/build.gradle
+          fi
+          grep ndkVersion android/build.gradle
+        working-directory: ${{ runner.temp }}/app
       - name: Install app dependencies
         run: npm install
         working-directory: ${{ runner.temp }}/app
