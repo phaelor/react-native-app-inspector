@@ -42,6 +42,8 @@
 - The panel no longer uses React Native's deprecated `SafeAreaView`. It pads
   itself from the window insets reported by the native module, which also
   fixes the header sitting under the status bar on Android with edge-to-edge.
+- A long value in a detail row — a request URL, say — wraps in the space left
+  over instead of overflowing across its label.
 - The FPS badge returns to its edge when the window is resized. After a
   rotation it could end up off-screen, taking the only way into the panel
   with it.
