@@ -22,9 +22,13 @@ npm install react-native-app-inspector
 cd ios && pod install        # native FPS/CPU/RSS + network capture (optional)
 ```
 
-`react` and `react-native` are the only peer deps. The native module autolinks;
-without a rebuild everything still works in JS — you just lose the native
-metrics.
+`react` and `react-native` are the only peer deps (`react-native >= 0.72`).
+The native module autolinks; without a rebuild everything still works in JS —
+you just lose the native metrics.
+
+It is a **TurboModule** on the New Architecture and a normal native module on
+the legacy bridge, so it works either way with no configuration. The New
+Architecture path needs `react-native >= 0.74`.
 
 ## Quick start
 
@@ -53,10 +57,10 @@ badge** floats over the app, and tapping it opens the panel.
 | Tab | What it shows |
 |---|---|
 | **Timeline** | Time-ordered log of actions, navigation, renders, network, FPS drops, memory and errors. Tap an FPS drop → **cause correlation** tells you what likely caused it. |
-| **Network** | Every request with method, status, duration. Captured **natively** (NSURLProtocol / OkHttp interceptor) when the native module is installed, XHR patch otherwise. |
+| **Network** | Every request with method, status, duration, **bodies and headers**, and a copyable cURL. Captured **natively** (NSURLProtocol / OkHttp interceptor) when the native module is installed, XHR patch otherwise. Secrets are [redacted](#network-capture). |
 | **Taps** | Tap→response latency for **every pressable**, automatically — labels from `testID` / text, timing from the native touch timestamp to the next presented frame. RAIL-coded: <100 ms good, >300 ms sluggish. |
-| **Perf** | Live JS & UI-thread FPS, CPU, RSS memory, JS heap, jank — plus per-component render stats (count, avg, worst). |
-| **Screens** | Per-screen score **0–100** with the concrete problems: slow load, FPS drops, slow renders, memory growth, slow requests, slow taps. |
+| **Perf** | Live JS & UI-thread FPS, CPU, RSS memory, JS heap, jank — plus per-component render stats (count, avg, worst) in development builds. |
+| **Screens** | Per-screen score **0–100** with the concrete problems: slow load, FPS drops, slow renders (development builds), memory growth, slow requests, slow taps. |
 | **Storage** | Key/value browser for AsyncStorage / MMKV / anything: search, pretty-printed JSON, edit, delete, clear. |
 | **Startup** | Time-to-interactive and custom marks (`AppInspector.mark('cache-ready')`). |
 | **Settings** | Pause live updates, share the session (native share sheet), clear, hide the badge. |
@@ -81,9 +85,72 @@ All props are optional:
   autoCaptureTaps={true}
   profileRoot={true}           // root render profiler (id "App")
   modules={{ network: true, errors: true, performance: true, slowScreens: true }}
+  network={{ captureBodies: true, maxBodyBytes: 32768, captureHeaders: true }}
   maxEntries={500}             // ring-buffer size per feed
 />
 ```
+
+## Network capture
+
+Requests are captured with their bodies and headers, so the panel shows what
+actually went over the wire — and a cURL you can copy straight into a terminal.
+
+```tsx
+<InspectorRoot
+  network={{
+    captureBodies: true,       // request + response bodies
+    maxBodyBytes: 32768,       // larger bodies are truncated
+    captureHeaders: true,      // request + response headers
+  }}>
+```
+
+<div align="center">
+<img src="docs/screenshots/ios-network-detail.png" width="260" alt="A captured request with its secrets redacted">
+</div>
+
+**Secrets are replaced with `[redacted]`** before anything is stored, so they
+never reach the panel, the export or a persisted session:
+
+- header, body and query keys that name a secret — `password`, `token`,
+  `apiKey`, `authorization`, `cookie`, `signature`, `privateKey` and their
+  common variants, matched case- and separator-insensitively;
+- query parameters inside headers whose value is a URL (`Location`,
+  `Referer`), which servers often echo back complete with the key you sent.
+
+> **It is still your real traffic.** Anything not on that list — order
+> contents, e-mail addresses, whatever your API returns — is shown in full to
+> whoever holds the phone. That is the point of the tool, and the reason to
+> gate it behind `enabled={__DEV__}` or a staging-only flag rather than
+> shipping it to users. Set `network={{ captureBodies: false, captureHeaders:
+> false }}` if even that is too much.
+
+## Release builds
+
+The panel is meant for QA and staging builds, which are usually release
+builds, so it keeps working there — with one gap.
+
+Put the import first in your entry file:
+
+```js
+// index.js — before anything that pulls in React
+import 'react-native-app-inspector';
+import { AppRegistry } from 'react-native';
+```
+
+React only reports render commits to a profiler in development. In a release
+build the library gets that signal another way, and it has to be in place
+before React itself loads — hence the import position. Without it, tap timing
+falls back to measuring up to the next presented frame: close, but less exact.
+
+| In a release build | |
+|---|---|
+| Network, errors, actions, navigation, storage, export | work |
+| FPS, CPU, memory, JS heap, frozen frames, startup marks | work |
+| Tap → response latency, automatic | works |
+| Per-component render stats, slow-render events | **development only** |
+
+Render statistics need React's profiler timings, which production React does
+not produce at all.
 
 ## Recipes
 
@@ -144,6 +211,8 @@ done();
 ```
 
 Its commit count / avg / worst render times show up under Perf → Renders.
+In a release build there are no such timings — see
+[Release builds](#release-builds).
 </details>
 
 <details>

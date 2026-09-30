@@ -62,12 +62,17 @@ export function makePanelStyles(t: Theme) {
     rowLabel: {
       color: t.muted,
       fontSize: 13,
+      marginRight: 12,
     },
     rowValue: {
       color: t.text,
       fontSize: 13,
       fontWeight: '600',
       fontVariant: ['tabular-nums'],
+      // A long value (a URL) wraps in the space left over instead of
+      // overflowing across the label.
+      flexShrink: 1,
+      textAlign: 'right',
     },
     empty: {
       color: t.faint,
