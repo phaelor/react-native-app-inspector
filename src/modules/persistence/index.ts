@@ -12,6 +12,19 @@ export interface PersistedSession {
 
 const KEY = '@app-inspector/last-session';
 
+function isPersistedSession(value: unknown): value is PersistedSession {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.savedAt === 'number' &&
+    typeof v.session === 'string' &&
+    typeof v.startedAt === 'number' &&
+    Array.isArray(v.events)
+  );
+}
+
 /**
  * Persists the last inspector session so it can be inspected after a crash or
  * a relaunch. Saving is best-effort and never throws into the caller.
@@ -29,7 +42,11 @@ export class SessionPersistence {
   async loadPrevious(): Promise<PersistedSession | null> {
     try {
       const raw = await this.adapter.getItem(this.key);
-      return raw ? (JSON.parse(raw) as PersistedSession) : null;
+      if (!raw) {
+        return null;
+      }
+      const parsed: unknown = JSON.parse(raw);
+      return isPersistedSession(parsed) ? parsed : null;
     } catch {
       return null;
     }

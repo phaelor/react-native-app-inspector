@@ -20,6 +20,7 @@ import { NetworkLogger } from '../modules/network';
 import {
   DEFAULT_MAX_BODY_BYTES,
   redactHeaders,
+  redactRecord,
   redactUrl,
   sanitizeBody,
 } from '../modules/network/redact';
@@ -256,9 +257,13 @@ class AppInspectorController {
     this.running = true;
     this.lastSample = null;
 
-    if (this.persistence) {
-      void this.persistence.loadPrevious().then((session) => {
-        this.previousSession = session;
+    const persistence = this.persistence;
+    if (persistence) {
+      void persistence.loadPrevious().then((session) => {
+        // A configure() while loading swapped the adapter; this result is stale.
+        if (this.persistence === persistence) {
+          this.previousSession = session;
+        }
       });
     }
 
@@ -466,13 +471,14 @@ class AppInspectorController {
 
   /** Record a user action (lands in the action log and on the timeline). */
   trackAction(name: string, data?: Record<string, unknown>): void {
+    const safe = redactRecord(data);
     this.store.pushAction({
       id: uid('act'),
       type: name,
-      payload: data,
+      payload: safe,
       timestamp: Date.now(),
     });
-    this.timeline.trackAction(name, data);
+    this.timeline.trackAction(name, safe);
   }
 
   /** Record a screen transition and set the active screen for later events. */
@@ -485,7 +491,7 @@ class AppInspectorController {
 
   /** Manually record an error on the timeline. */
   trackError(message: string, data?: Record<string, unknown>): void {
-    this.timeline.trackError(message, 'error', data);
+    this.timeline.trackError(message, 'error', redactRecord(data));
   }
 
   /** Record a completed network request (manual; auto-capture also uses this). */

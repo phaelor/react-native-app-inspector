@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased (0.3.1)
+
+### Fixed
+
+- **Action and error data are redacted.** Redux actions, `trackAction` data
+  and `trackError` data went onto the timeline, into the saved session and
+  into shared exports as-is, so a `token` or `password` in a payload leaked.
+  They now go through the same redaction as network bodies.
+- `getPreviousSession()` returns `null` for a saved session it cannot read
+  (corrupt or from an unknown format) instead of a malformed object, and
+  ignores a load that finishes after `configure()` swapped the storage.
+
 ## 0.3.0 — 2026-09-29
 
 ### Added
