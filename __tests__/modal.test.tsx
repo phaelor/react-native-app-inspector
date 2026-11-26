@@ -1,5 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { Modal } from 'react-native';
 import { InspectorModal } from '../src/ui';
+import { splitUrl } from '../src/ui/panel/NetworkTab';
 import { AppInspector } from '../src/core';
 
 function pushRequest(over: Record<string, unknown> = {}): void {
@@ -34,7 +36,7 @@ describe('<InspectorModal />', () => {
       <InspectorModal visible initialTab="network" />,
     );
     pushRequest();
-    expect(getByText('https://api.example.com/orders')).toBeTruthy();
+    expect(getByText('/orders')).toBeTruthy();
     expect(getByText('201')).toBeTruthy();
   });
 
@@ -49,7 +51,7 @@ describe('<InspectorModal />', () => {
     expect(getAllByText('Paused').length).toBeGreaterThanOrEqual(1);
     fireEvent.press(getByText('Network'));
     pushRequest({ id: 'n2', url: 'https://api.example.com/after-pause' });
-    expect(queryByText('https://api.example.com/after-pause')).toBeNull();
+    expect(queryByText('/after-pause')).toBeNull();
   });
 
   it('clears via Settings and resumes so the wipe is visible', () => {
@@ -65,7 +67,7 @@ describe('<InspectorModal />', () => {
     // Clear resumes: new data streams in instead of the frozen snapshot.
     fireEvent.press(getByText('Network'));
     pushRequest({ id: 'n3', url: 'https://api.example.com/fresh' });
-    expect(queryByText('https://api.example.com/fresh')).toBeTruthy();
+    expect(queryByText('/fresh')).toBeTruthy();
     clear.mockRestore();
   });
 
@@ -114,7 +116,7 @@ describe('<InspectorModal />', () => {
       <InspectorModal visible initialTab="network" />,
     );
     pushRequest();
-    fireEvent.press(getByText('https://api.example.com/orders'));
+    fireEvent.press(getByText('/orders'));
     fireEvent.press(getByText('Copy cURL'));
     expect(setString).toHaveBeenCalledWith(
       expect.stringContaining("curl -X POST 'https://api.example.com/orders'"),
@@ -135,7 +137,7 @@ describe('<InspectorModal />', () => {
       },
       responseHeaders: { 'content-type': 'application/json' },
     });
-    fireEvent.press(getByText('https://api.example.com/orders'));
+    fireEvent.press(getByText('/orders'));
     expect(getByText('Request headers')).toBeTruthy();
     // Once in the headers block and once inside the cURL.
     expect(getAllByText(/Authorization: \[redacted\]/)).toHaveLength(2);
@@ -151,7 +153,7 @@ describe('<InspectorModal />', () => {
       <InspectorModal visible initialTab="network" />,
     );
     pushRequest();
-    fireEvent.press(getByText('https://api.example.com/orders'));
+    fireEvent.press(getByText('/orders'));
     expect(getByText('cURL')).toBeTruthy(); // detail is open
     expect(queryByText('Copy cURL')).toBeNull();
   });
@@ -187,5 +189,91 @@ describe('<InspectorModal />', () => {
     const { getByText } = render(<InspectorModal visible onClose={onClose} />);
     fireEvent.press(getByText('Close'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows the request path with the host underneath', () => {
+    const { getByText } = render(
+      <InspectorModal visible initialTab="network" />,
+    );
+    pushRequest({ url: 'https://api.example.com/orders?page=2' });
+    expect(getByText('/orders?page=2')).toBeTruthy();
+    expect(getByText('api.example.com')).toBeTruthy();
+  });
+
+  it('filters failed requests and counts them on the Network tab', () => {
+    const { getByText, queryByText } = render(
+      <InspectorModal visible initialTab="network" />,
+    );
+    pushRequest();
+    pushRequest({ id: 'n2', url: 'https://api.example.com/boom', status: 500 });
+    pushRequest({
+      id: 'n3',
+      url: 'https://api.example.com/offline',
+      status: undefined,
+    });
+    expect(getByText('ERR')).toBeTruthy();
+    // Tab badge: the 500 plus the request that got no response.
+    expect(getByText('2')).toBeTruthy();
+
+    fireEvent.press(getByText('Failed'));
+    expect(queryByText('/orders')).toBeNull();
+    expect(getByText('/boom')).toBeTruthy();
+    expect(getByText('/offline')).toBeTruthy();
+  });
+
+  it('system back leaves a detail view before closing the modal', () => {
+    const onClose = jest.fn();
+    const { getByText, queryByText, UNSAFE_getByType } = render(
+      <InspectorModal visible initialTab="network" onClose={onClose} />,
+    );
+    pushRequest();
+    fireEvent.press(getByText('/orders'));
+    expect(getByText(/Back to network/)).toBeTruthy();
+
+    act(() => UNSAFE_getByType(Modal).props.onRequestClose());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(queryByText(/Back to network/)).toBeNull();
+
+    act(() => UNSAFE_getByType(Modal).props.onRequestClose());
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the search bar while a detail view is open', () => {
+    const { getByText, queryByPlaceholderText } = render(
+      <InspectorModal visible initialTab="network" />,
+    );
+    pushRequest();
+    expect(queryByPlaceholderText('Search requests…')).toBeTruthy();
+    fireEvent.press(getByText('/orders'));
+    expect(queryByPlaceholderText('Search requests…')).toBeNull();
+    fireEvent.press(getByText(/Back to network/));
+    expect(queryByPlaceholderText('Search requests…')).toBeTruthy();
+  });
+
+  it('drops back to the list when the open request is cleared', () => {
+    const { getByText, queryByPlaceholderText } = render(
+      <InspectorModal visible initialTab="network" />,
+    );
+    pushRequest();
+    fireEvent.press(getByText('/orders'));
+    act(() => AppInspector.clear());
+    expect(queryByPlaceholderText('Search requests…')).toBeTruthy();
+  });
+});
+
+describe('splitUrl', () => {
+  it('splits absolute URLs into host and path', () => {
+    expect(splitUrl('https://a.io/x/y?q=1#h')).toEqual({
+      host: 'a.io',
+      path: '/x/y?q=1#h',
+    });
+    expect(splitUrl('http://a.io:8080')).toEqual({
+      host: 'a.io:8080',
+      path: '/',
+    });
+  });
+
+  it('keeps relative URLs whole', () => {
+    expect(splitUrl('/orders')).toEqual({ host: '', path: '/orders' });
   });
 });

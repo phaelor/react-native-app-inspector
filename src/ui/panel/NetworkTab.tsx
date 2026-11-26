@@ -12,13 +12,16 @@ import type { NetworkLogEntry } from '../../core/types';
 import { Row } from './Row';
 import { CopyButton } from './CopyButton';
 import { usePanelStyles } from './styles';
+import { useSelection, type SelectionProps } from './useSelection';
 import type { Theme } from '../theme';
 
+/** Entries are recorded on completion, so a missing status means no response. */
+export function isFailedRequest(entry: NetworkLogEntry): boolean {
+  return entry.status === undefined || entry.status >= 400;
+}
+
 function statusColor(status: number | undefined, theme: Theme): string {
-  if (status === undefined) {
-    return theme.muted;
-  }
-  if (status >= 400) {
+  if (status === undefined || status >= 400) {
     return theme.bad;
   }
   if (status >= 300) {
@@ -32,6 +35,14 @@ function body(value: unknown): string | null {
     return null;
   }
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+export function splitUrl(url: string): { host: string; path: string } {
+  const match = /^[a-z][a-z\d+.-]*:\/\/([^/?#]*)(.*)$/i.exec(url);
+  if (!match) {
+    return { host: '', path: url };
+  }
+  return { host: match[1] ?? '', path: match[2] || '/' };
 }
 
 const shellQuote = (text: string): string => `'${text.replace(/'/g, `'\\''`)}'`;
@@ -85,7 +96,9 @@ function NetworkDetail({
       <Row label="url" value={entry.url} />
       <Row
         label="status"
-        value={entry.status !== undefined ? String(entry.status) : 'pending'}
+        value={
+          entry.status !== undefined ? String(entry.status) : 'no response'
+        }
       />
       {entry.durationMs !== undefined ? (
         <Row label="duration" value={`${Math.round(entry.durationMs)} ms`} />
@@ -158,6 +171,7 @@ function NetworkRow({
   onPress: () => void;
 }): ReactElement {
   const { styles, theme } = usePanelStyles();
+  const { host, path } = splitUrl(entry.url);
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -167,16 +181,23 @@ function NetworkRow({
       <View style={styles.methodChip}>
         <Text style={styles.methodText}>{entry.method}</Text>
       </View>
-      <Text style={styles.netUrl} numberOfLines={1}>
-        {entry.url}
-      </Text>
+      <View style={styles.netUrlCol}>
+        <Text style={styles.netUrl} numberOfLines={1} ellipsizeMode="middle">
+          {path}
+        </Text>
+        {host ? (
+          <Text style={styles.netHost} numberOfLines={1}>
+            {host}
+          </Text>
+        ) : null}
+      </View>
       {entry.durationMs !== undefined ? (
         <Text style={styles.netMeta}>{Math.round(entry.durationMs)}ms</Text>
       ) : null}
       <Text
         style={[styles.netStatus, { color: statusColor(entry.status, theme) }]}
       >
-        {entry.status ?? '···'}
+        {entry.status ?? 'ERR'}
       </Text>
     </TouchableOpacity>
   );
@@ -186,15 +207,24 @@ function NetworkRow({
  * Captured HTTP requests: virtualized list with method, status and timing;
  * tap for request/response bodies. Owns its scrolling.
  */
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'failed', label: 'Failed' },
+] as const;
+
 export function NetworkTab({
   state,
   search = '',
+  ...selection
 }: {
   state: InspectorState;
   search?: string;
-}): ReactElement {
+} & SelectionProps): ReactElement {
   const { styles } = usePanelStyles();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]['key']>('all');
+  const [selectedId, setSelectedId] = useSelection(selection, (id) =>
+    state.network.some((e) => e.id === id),
+  );
 
   const selected = selectedId
     ? state.network.find((e) => e.id === selectedId)
@@ -212,6 +242,7 @@ export function NetworkTab({
 
   const query = search.trim().toLowerCase();
   const rows = state.network
+    .filter((e) => filter === 'all' || isFailedRequest(e))
     .filter(
       (e) =>
         query === '' ||
@@ -231,11 +262,40 @@ export function NetworkTab({
       )}
       initialNumToRender={20}
       keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        state.network.length === 0 ? undefined : (
+          <View style={styles.filterRow}>
+            {FILTERS.map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: filter === option.key }}
+                onPress={() => setFilter(option.key)}
+                style={[
+                  styles.chip,
+                  filter === option.key && styles.chipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    filter === option.key && styles.chipTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )
+      }
       ListEmptyComponent={
         <Text style={styles.empty}>
           {state.network.length === 0
             ? 'No requests captured yet. `fetch` and XMLHttpRequest are logged automatically.'
-            : 'No requests match this search.'}
+            : filter === 'failed' && query === ''
+              ? 'No failed requests.'
+              : 'No requests match this search.'}
         </Text>
       }
     />

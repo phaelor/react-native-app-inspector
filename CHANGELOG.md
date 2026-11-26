@@ -8,9 +8,21 @@
   and `trackError` data went onto the timeline, into the saved session and
   into shared exports as-is, so a `token` or `password` in a payload leaked.
   They now go through the same redaction as network bodies.
+- Android's back button closes an open request, event or storage key first,
+  instead of the whole inspector.
 - `getPreviousSession()` returns `null` for a saved session it cannot read
   (corrupt or from an unknown format) instead of a malformed object, and
   ignores a load that finishes after `configure()` swapped the storage.
+
+### Changed
+
+- Network rows show the request path (with its query) and the host on a
+  second line. They used to show the full URL, which got cut off after the
+  host, so every row from one API looked the same.
+- A **Failed** filter on the Network tab, and a count of failed requests on
+  the tab itself. A request that got no response now shows `ERR` instead of
+  `···`, which looked like it was still pending.
+- The search bar is hidden while a detail view is open.
 
 ## 0.3.0 — 2026-09-29
 

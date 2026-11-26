@@ -439,10 +439,17 @@ export function makePanelStyles(t: Theme) {
       fontWeight: '800',
       letterSpacing: 0.3,
     },
+    netUrlCol: {
+      flex: 1,
+    },
     netUrl: {
       color: t.text,
       fontSize: 13,
-      flex: 1,
+    },
+    netHost: {
+      color: t.muted,
+      fontSize: 11,
+      marginTop: 2,
     },
     netMeta: {
       color: t.muted,

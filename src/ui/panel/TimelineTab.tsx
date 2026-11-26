@@ -13,6 +13,7 @@ import type { TimelineEvent, TimelineSeverity } from '../../core/types';
 import { Row } from './Row';
 import { CopyButton } from './CopyButton';
 import { usePanelStyles } from './styles';
+import { useSelection, type SelectionProps } from './useSelection';
 
 const TYPE_TAG: Record<TimelineEvent['type'], string> = {
   lifecycle: 'LIFE',
@@ -153,14 +154,17 @@ function TimelineEventRow({
 export function TimelineTab({
   state,
   search = '',
+  ...selection
 }: {
   state: InspectorState;
   search?: string;
-}): ReactElement {
+} & SelectionProps): ReactElement {
   const { styles } = usePanelStyles();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | TimelineSeverity>('all');
   const events = state.timeline;
+  const [selectedId, setSelectedId] = useSelection(selection, (id) =>
+    events.some((event) => event.id === id),
+  );
 
   const selected = selectedId
     ? events.find((event) => event.id === selectedId)
