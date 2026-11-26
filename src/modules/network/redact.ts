@@ -110,6 +110,18 @@ export function redactValue(
   return out;
 }
 
+export function redactRecord(
+  data: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!data) {
+    return data;
+  }
+  const out = redactValue(data);
+  return typeof out === 'object' && out !== null && !Array.isArray(out)
+    ? (out as Record<string, unknown>)
+    : { value: out };
+}
+
 // Their value is a URL, and servers commonly echo the request URL back in
 // `Location`, secret query parameters included.
 const URL_HEADERS = new Set(['location', 'content-location', 'referer']);

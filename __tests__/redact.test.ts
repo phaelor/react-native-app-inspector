@@ -5,6 +5,7 @@ import {
   redactValue,
   sanitizeBody,
   REDACTED,
+  TRUNCATED_SUFFIX,
 } from '../src/modules/network/redact';
 
 describe('isSecretKey', () => {
@@ -135,5 +136,34 @@ describe('redactHeaders', () => {
   it('returns undefined for missing or empty headers', () => {
     expect(redactHeaders(undefined)).toBeUndefined();
     expect(redactHeaders({})).toBeUndefined();
+  });
+});
+
+describe('redact edge cases', () => {
+  it('marks circular references instead of recursing forever', () => {
+    const value: Record<string, unknown> = { name: 'a' };
+    value.self = value;
+    expect(redactValue(value)).toEqual({ name: 'a', self: '[circular]' });
+  });
+
+  it('stringifies class instances instead of walking them', () => {
+    const when = new Date(0);
+    expect(redactValue({ when })).toEqual({ when: String(when) });
+  });
+
+  it('replaces binary bodies with a type marker', () => {
+    expect(sanitizeBody(new ArrayBuffer(8))).toBe('[ArrayBuffer]');
+    expect(sanitizeBody(new Uint8Array(4))).toBe('[Uint8Array]');
+  });
+
+  it('falls back to a truncated string when a body cannot be serialized', () => {
+    const body = { big: BigInt(1) };
+    expect(typeof sanitizeBody(body, 64)).toBe('string');
+  });
+
+  it('caps oversized structured bodies', () => {
+    const out = sanitizeBody({ data: 'x'.repeat(500) }, 100);
+    expect(typeof out).toBe('string');
+    expect(String(out).endsWith(TRUNCATED_SUFFIX)).toBe(true);
   });
 });

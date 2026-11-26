@@ -1,4 +1,5 @@
 import type { ActionLogEntry } from '../../core/types';
+import { redactValue } from '../network/redact';
 
 export interface ActionLoggerOptions {
   /** Called for every recorded action. */
@@ -34,7 +35,7 @@ export class ActionLogger {
     this.onEntry({
       id: nextId(),
       type,
-      payload,
+      payload: redactValue(payload),
       timestamp: Date.now(),
     });
   }
