@@ -20,6 +20,7 @@ import {
 import { Row } from './Row';
 import { CopyButton } from './CopyButton';
 import { usePanelStyles } from './styles';
+import { useSelection, type SelectionProps } from './useSelection';
 
 function confirmDestructive(
   title: string,
@@ -174,12 +175,19 @@ function StorageDetail({
  * JSON-aware value view, edit/delete per key and a confirmed clear-all. Owns
  * its scrolling.
  */
-export function StorageTab({ search = '' }: { search?: string }): ReactElement {
+export function StorageTab({
+  search = '',
+  ...selection
+}: { search?: string } & SelectionProps): ReactElement {
   const { styles, theme } = usePanelStyles();
   const storages = AppInspector.getStorages();
   const [index, setIndex] = useState(0);
   const [entries, setEntries] = useState<StorageEntrySummary[] | null>(null);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // While a reload is in flight the key may still exist, so don't reset it.
+  const [selectedKey, setSelectedKey] = useSelection(
+    selection,
+    (key) => entries === null || entries.some((entry) => entry.key === key),
+  );
   const adapter = storages[Math.min(index, storages.length - 1)];
 
   const reload = useCallback((): void => {

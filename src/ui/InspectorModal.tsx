@@ -17,7 +17,7 @@ import { useInspectorState } from './useInspectorState';
 import { useModalInsets } from './useModalInsets';
 import { markInspectorUiRender } from './uiRenderMark';
 import { TimelineTab } from './panel/TimelineTab';
-import { NetworkTab } from './panel/NetworkTab';
+import { NetworkTab, isFailedRequest } from './panel/NetworkTab';
 import { InteractionsTab } from './panel/InteractionsTab';
 import { PerformanceTab } from './panel/PerformanceTab';
 import { ScreensTab } from './panel/ScreensTab';
@@ -185,6 +185,7 @@ export function InspectorModal({
   const [tab, setTab] = useState<Tab>(initialTab);
   const [paused, setPaused] = useState(false);
   const [search, setSearch] = useState('');
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   // While paused, freeze the last live snapshot instead of tracking updates.
   const frozen = useRef(live);
@@ -196,6 +197,16 @@ export function InspectorModal({
   const selectTab = (key: Tab): void => {
     setTab(key);
     setSearch('');
+    setDetailId(null);
+  };
+
+  // Android back steps out of a detail view before closing the whole modal.
+  const handleRequestClose = (): void => {
+    if (detailId !== null) {
+      setDetailId(null);
+    } else {
+      onClose?.();
+    }
   };
 
   // Resume on clear so the wipe is visible immediately, not after Resume.
@@ -204,16 +215,17 @@ export function InspectorModal({
     setPaused(false);
   };
 
-  const searchable = LIST_TABS.includes(tab);
-  const errorCount = state.timeline.filter(
-    (e) => e.severity === 'error',
-  ).length;
+  const searchable = LIST_TABS.includes(tab) && detailId === null;
+  const tabCounts: Partial<Record<Tab, number>> = {
+    timeline: state.timeline.filter((e) => e.severity === 'error').length,
+    network: state.network.filter(isFailedRequest).length,
+  };
 
   return (
     <Modal
       visible={visible}
       animationType={reduceMotion ? 'fade' : 'slide'}
-      onRequestClose={onClose}
+      onRequestClose={handleRequestClose}
     >
       <Root
         testID="inspector-panel-root"
@@ -244,29 +256,32 @@ export function InspectorModal({
 
         <View style={styles.tabsRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {TABS.map(({ key, label }) => (
-              <TouchableOpacity
-                key={key}
-                accessibilityRole="button"
-                accessibilityState={{ selected: tab === key }}
-                onPress={() => selectTab(key)}
-                style={[styles.tabPill, tab === key && styles.tabPillActive]}
-              >
-                <Text
-                  style={[
-                    styles.tabPillText,
-                    tab === key && styles.tabPillTextActive,
-                  ]}
+            {TABS.map(({ key, label }) => {
+              const count = tabCounts[key] ?? 0;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: tab === key }}
+                  onPress={() => selectTab(key)}
+                  style={[styles.tabPill, tab === key && styles.tabPillActive]}
                 >
-                  {label}
-                </Text>
-                {key === 'timeline' && errorCount > 0 ? (
-                  <View style={styles.tabCount}>
-                    <Text style={styles.tabCountText}>{errorCount}</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.tabPillText,
+                      tab === key && styles.tabPillTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                  {count > 0 ? (
+                    <View style={styles.tabCount}>
+                      <Text style={styles.tabCountText}>{count}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -293,12 +308,32 @@ export function InspectorModal({
         ) : null}
 
         {/* List tabs own their scrolling (FlatList must not nest in a ScrollView). */}
-        {tab === 'timeline' && <TimelineTab state={state} search={search} />}
-        {tab === 'network' && <NetworkTab state={state} search={search} />}
+        {tab === 'timeline' && (
+          <TimelineTab
+            state={state}
+            search={search}
+            selectedId={detailId}
+            onSelect={setDetailId}
+          />
+        )}
+        {tab === 'network' && (
+          <NetworkTab
+            state={state}
+            search={search}
+            selectedId={detailId}
+            onSelect={setDetailId}
+          />
+        )}
         {tab === 'interactions' && (
           <InteractionsTab state={state} search={search} />
         )}
-        {tab === 'storage' && <StorageTab search={search} />}
+        {tab === 'storage' && (
+          <StorageTab
+            search={search}
+            selectedId={detailId}
+            onSelect={setDetailId}
+          />
+        )}
         {!LIST_TABS.includes(tab) ? (
           <ScrollView
             style={[styles.body, styles.bodyFill]}
